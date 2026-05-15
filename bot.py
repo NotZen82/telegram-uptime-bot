@@ -4,7 +4,7 @@ from aiogram.filters import Command
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config import BOT_TOKEN, CHECK_INTERVAL
-from db import init_db, add_site, delete_site
+from db import init_db, add_site, delete_site, get_user_sites
 from checker import check_sites
 
 bot = Bot(token=BOT_TOKEN)
@@ -21,7 +21,6 @@ async def start(msg: types.Message):
         "/list (пока нет)\n"
         "/remove google.com"
     )
-
 
 @dp.message(Command("add"))
 async def add(msg: types.Message):
@@ -61,3 +60,18 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+@dp.message(Command("list"))
+async def list_sites(msg: types.Message):
+    sites = get_user_sites(msg.chat.id)
+
+    if not sites:
+        await msg.answer("📭 У тебя пока нет сайтов для мониторинга.")
+        return
+
+    text = "📡 Твои сайты:\n\n"
+    for i, site in enumerate(sites, start=1):
+        text += f"{i}. {site[0]}\n"
+
+    await msg.answer(text)

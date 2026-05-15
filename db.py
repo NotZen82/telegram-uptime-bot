@@ -47,3 +47,13 @@ def delete_site(url, chat_id):
 
     conn.commit()
     conn.close()
+
+def get_user_sites(chat_id):
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+
+    c.execute("SELECT url FROM sites WHERE chat_id=?", (chat_id,))
+    rows = c.fetchall()
+
+    conn.close()
+    return rows
