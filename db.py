@@ -57,3 +57,14 @@ def get_user_sites(chat_id):
 
     conn.close()
     return rows
+
+
+def get_user_sites(chat_id):
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+
+    c.execute("SELECT url FROM sites WHERE chat_id=?", (chat_id,))
+    rows = c.fetchall()
+
+    conn.close()
+    return rows
