@@ -48,6 +48,22 @@ async def scheduler_task():
     await check_sites(bot)
 
 
+@dp.message(Command("list"))
+async def list_sites(msg: types.Message):
+    sites = get_user_sites(msg.chat.id)
+
+    if not sites:
+        await msg.answer("📭 У тебя пока нет сайтов для мониторинга.")
+        return
+
+    text = "📡 Твои сайты:\n\n"
+
+    for i, site in enumerate(sites, start=1):
+        text += f"{i}. {site[0]}\n"
+
+    await msg.answer(text)
+    
+
 async def main():
     init_db()
 
@@ -77,16 +93,3 @@ async def list_sites(msg: types.Message):
     await msg.answer(text)
 
 
-@dp.message(Command("list"))
-async def list_sites(msg: types.Message):
-    sites = get_user_sites(msg.chat.id)
-
-    if not sites:
-        await msg.answer("📭 У тебя пока нет сайтов для мониторинга.")
-        return
-
-    text = "📡 Твои сайты:\n\n"
-    for i, site in enumerate(sites, start=1):
-        text += f"{i}. {site[0]}\n"
-
-    await msg.answer(text)
