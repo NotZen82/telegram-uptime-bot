@@ -269,7 +269,7 @@ async def callback_add(callback: types.CallbackQuery):
     )
 
 
-@@dp.callback_query(F.data == "menu_check")
+@dp.callback_query(F.data == "menu_check")
 async def callback_check(callback: types.CallbackQuery):
     await callback.answer()
 
