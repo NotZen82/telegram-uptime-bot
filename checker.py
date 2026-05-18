@@ -67,7 +67,7 @@ async def check_sites(bot: Bot):
         if ssl_days is None:
             continue
 
-        if ssl_days <= 9999 and not ssl_alert_sent:
+        if ssl_days <= 7 and not ssl_alert_sent:
             await bot.send_message(
                 chat_id,
                 f"⚠️ SSL сертификат скоро истекает:\n\n"
