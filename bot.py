@@ -439,13 +439,15 @@ async def callback_check(callback: types.CallbackQuery):
 
             if response.status_code < 400:
                 icon = "🟢"
+                result = f"200 — {elapsed}ms"
 
             elif response.status_code < 500:
                 icon = "🟠"
+                result = f"HTTP {response.status_code} — {elapsed}ms"
 
             else:
                 icon = "🔴"
-            result = f"HTTP {response.status_code} — {elapsed}ms"
+                result = f"HTTP {response.status_code} — {elapsed}ms"
 
         except requests.exceptions.Timeout:
             icon = "🔴"
@@ -511,7 +513,14 @@ async def manual_check(msg: types.Message):
             if not full_url.startswith("http"):
                 full_url = f"https://{full_url}"
 
-            response = requests.get(full_url, timeout=10)
+            response = requests.get(
+                full_url,
+                timeout=10,
+                allow_redirects=True,
+                headers={
+                    "User-Agent": "Mozilla/5.0"
+                }
+            )
 
             if response.status_code < 400:
                 icon = "🟢"
