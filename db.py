@@ -24,9 +24,26 @@ def init_db():
                     url TEXT NOT NULL,
                     chat_id BIGINT NOT NULL,
                     status TEXT DEFAULT 'UNKNOWN',
+                    ssl_alert_sent BOOLEAN DEFAULT FALSE,
                     UNIQUE(url, chat_id)
                 )
             """)
+
+            c.execute("""
+                ALTER TABLE sites
+                ADD COLUMN IF NOT EXISTS ssl_alert_sent BOOLEAN DEFAULT FALSE
+            """)
+
+        conn.commit()
+
+
+def update_ssl_alert_status(site_id, alert_sent):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "UPDATE sites SET ssl_alert_sent=%s WHERE id=%s",
+                (alert_sent, site_id)
+            )
         conn.commit()
 
 
@@ -67,14 +84,23 @@ def get_sites():
     with get_conn() as conn:
         with conn.cursor() as c:
             c.execute(
-                "SELECT id, url, chat_id, status FROM sites ORDER BY id"
+                "SELECT id, url, chat_id, status, ssl_alert_sent FROM sites ORDER BY id"
             )
             rows = c.fetchall()
 
     return [
-        (row["id"], row["url"], row["chat_id"], row["status"])
+        (
+            row["id"],
+            row["url"],
+            row["chat_id"],
+            row["status"],
+            row["ssl_alert_sent"]
+        )
         for row in rows
     ]
+
+
+
 
 
 def update_site_status(site_id, status):
