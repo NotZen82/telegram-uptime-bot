@@ -1,65 +1,102 @@
-import sqlite3
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
-DB_NAME = "data.db"
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+
+def get_conn():
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL is not set")
+
+    return psycopg2.connect(
+        DATABASE_URL,
+        cursor_factory=RealDictCursor
+    )
 
 
 def init_db():
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS sites (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        url TEXT,
-        chat_id INTEGER,
-        status TEXT DEFAULT 'UNKNOWN'
-    )
-    """)
-
-    # На случай если таблица уже была создана без status
-    try:
-        c.execute("ALTER TABLE sites ADD COLUMN status TEXT DEFAULT 'UNKNOWN'")
-    except sqlite3.OperationalError:
-        pass
-
-    conn.commit()
-    conn.close()
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS sites (
+                    id SERIAL PRIMARY KEY,
+                    url TEXT NOT NULL,
+                    chat_id BIGINT NOT NULL,
+                    status TEXT DEFAULT 'UNKNOWN',
+                    UNIQUE(url, chat_id)
+                )
+            """)
+        conn.commit()
 
 
 def add_site(url, chat_id):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-
-    c.execute(
-        "INSERT INTO sites (url, chat_id, status) VALUES (?, ?, ?)",
-        (url, chat_id, "UNKNOWN")
-    )
-
-    conn.commit()
-    conn.close()
-
-def site_exists(url, chat_id):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-
-    c.execute(
-        "SELECT id FROM sites WHERE url=? AND chat_id=?",
-        (url, chat_id)
-    )
-    row = c.fetchone()
-
-    conn.close()
-    return row is not None
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO sites (url, chat_id, status)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (url, chat_id) DO NOTHING
+            """, (url, chat_id, "UNKNOWN"))
+        conn.commit()
 
 
 def delete_site(url, chat_id):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "DELETE FROM sites WHERE url=%s AND chat_id=%s",
+                (url, chat_id)
+            )
+        conn.commit()
 
-    c.execute("DELETE FROM sites WHERE url=? AND chat_id=?", (url, chat_id))
 
-    conn.commit()
-    conn.close()
+def get_user_sites(chat_id):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "SELECT url, status FROM sites WHERE chat_id=%s ORDER BY id",
+                (chat_id,)
+            )
+            rows = c.fetchall()
+
+    return [(row["url"], row["status"]) for row in rows]
+
+
+def get_sites():
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "SELECT id, url, chat_id, status FROM sites ORDER BY id"
+            )
+            rows = c.fetchall()
+
+    return [
+        (row["id"], row["url"], row["chat_id"], row["status"])
+        for row in rows
+    ]
+
+
+def update_site_status(site_id, status):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "UPDATE sites SET status=%s WHERE id=%s",
+                (status, site_id)
+            )
+        conn.commit()
+
+
+def site_exists(url, chat_id):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "SELECT id FROM sites WHERE url=%s AND chat_id=%s",
+                (url, chat_id)
+            )
+            row = c.fetchone()
+
+    return row is not None
 
 
 def delete_site_by_number(chat_id, number):
@@ -69,50 +106,6 @@ def delete_site_by_number(chat_id, number):
         return None
 
     url = sites[number - 1][0]
-
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-
-    c.execute(
-        "DELETE FROM sites WHERE url=? AND chat_id=?",
-        (url, chat_id)
-    )
-
-    conn.commit()
-    conn.close()
+    delete_site(url, chat_id)
 
     return url
-
-
-def get_user_sites(chat_id):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-
-    c.execute("SELECT url, status FROM sites WHERE chat_id=?", (chat_id,))
-    rows = c.fetchall()
-
-    conn.close()
-    return rows
-
-
-def get_sites():
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-
-    c.execute("SELECT id, url, chat_id, status FROM sites")
-    rows = c.fetchall()
-
-    conn.close()
-    return rows
-
-
-def update_site_status(site_id, status):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-
-    c.execute("UPDATE sites SET status=? WHERE id=?", (status, site_id))
-
-    conn.commit()
-    conn.close()
-
-
