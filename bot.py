@@ -72,14 +72,15 @@ def refresh_menu():
 
 @dp.callback_query(F.data == "menu_incidents")
 async def menu_incidents(callback: types.CallbackQuery):
+    await callback.answer()
+
     rows = get_user_incidents(callback.message.chat.id)
 
     if not rows:
-        await callback.message.answer(
+        await callback.message.edit_text(
             "📭 Инцидентов пока нет.",
             reply_markup=main_menu()
         )
-        await callback.answer()
         return
 
     text = "📉 Последние инциденты:\n\n"
@@ -89,11 +90,10 @@ async def menu_incidents(callback: types.CallbackQuery):
         text += f"{icon} {url} — {status}\n"
         text += f"🕒 {created_at}\n\n"
 
-    await callback.message.answer(
+    await callback.message.edit_text(
         text,
         reply_markup=main_menu()
     )
-    await callback.answer()
 
 
 @dp.message(Command("incidents"))
@@ -158,33 +158,37 @@ def sites_menu(sites):
 
 @dp.callback_query(F.data == "menu_back")
 async def menu_back(callback: types.CallbackQuery):
-    await callback.message.answer(
+    await callback.answer()
+
+    await callback.message.edit_text(
         "📡 Главное меню:",
         reply_markup=main_menu()
     )
-    await callback.answer()
 
 
 @dp.callback_query(F.data == "menu_add_help")
 async def menu_add_help(callback: types.CallbackQuery):
-    await callback.message.answer(
-        "➕ Чтобы добавить сайт, напиши:\n\n"
-        "/add google.com"
-    )
     await callback.answer()
+
+    await callback.message.edit_text(
+        "➕ Чтобы добавить сайт, напиши:\n\n"
+        "/add google.com",
+        reply_markup=main_menu()
+    )
 
 
 @dp.callback_query(F.data == "menu_list")
 async def menu_list(callback: types.CallbackQuery):
+    await callback.answer()
+
     sites = get_user_sites(callback.message.chat.id)
 
     if not sites:
-        await callback.message.answer(
+        await callback.message.edit_text(
             "📭 У тебя пока нет сайтов.\n\n"
             "Добавь первый:\n/add google.com",
             reply_markup=main_menu()
         )
-        await callback.answer()
         return
 
     text = "📋 Твои сайты:\n\n"
@@ -201,20 +205,23 @@ async def menu_list(callback: types.CallbackQuery):
 
         text += f"{i}. {icon} {url} — {status}\n"
 
-    await callback.message.answer(
+    await callback.message.edit_text(
         text,
         reply_markup=sites_menu(sites)
     )
-    await callback.answer()
 
 
 @dp.callback_query(F.data == "menu_status")
 async def menu_status(callback: types.CallbackQuery):
+    await callback.answer()
+
     sites = get_user_sites(callback.message.chat.id)
 
     if not sites:
-        await callback.message.answer("📭 У тебя пока нет сайтов.")
-        await callback.answer()
+        await callback.message.edit_text(
+            "📭 У тебя пока нет сайтов.",
+            reply_markup=main_menu()
+        )
         return
 
     up = down = unknown = 0
@@ -227,7 +234,7 @@ async def menu_status(callback: types.CallbackQuery):
         else:
             unknown += 1
 
-    await callback.message.answer(
+    await callback.message.edit_text(
         "📊 Статус мониторинга:\n\n"
         f"🟢 UP: {up}\n"
         f"🔴 DOWN: {down}\n"
@@ -235,11 +242,12 @@ async def menu_status(callback: types.CallbackQuery):
         f"Всего: {len(sites)}",
         reply_markup=main_menu()
     )
-    await callback.answer()
 
 
 @dp.callback_query(F.data.startswith("delete_site:"))
 async def delete_site_callback(callback: types.CallbackQuery):
+    await callback.answer()
+
     number = int(callback.data.split(":")[1])
 
     url = delete_site_by_number(
@@ -248,15 +256,16 @@ async def delete_site_callback(callback: types.CallbackQuery):
     )
 
     if not url:
-        await callback.message.answer("⚠️ Сайт не найден. Обнови /list")
-        await callback.answer()
+        await callback.message.edit_text(
+            "⚠️ Сайт не найден. Обнови список.",
+            reply_markup=main_menu()
+        )
         return
 
-    await callback.message.answer(
+    await callback.message.edit_text(
         f"🗑 Удалено: {url}",
         reply_markup=main_menu()
     )
-    await callback.answer()
 
 
 
