@@ -4,7 +4,7 @@ from aiogram.filters import Command
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config import BOT_TOKEN, CHECK_INTERVAL
-from db import init_db, add_site, delete_site, get_user_sites, site_exists
+from db import init_db, add_site, delete_site, get_user_sites, site_exists, delete_site_by_number
 from checker import check_sites
 
 bot = Bot(token=BOT_TOKEN)
@@ -41,11 +41,23 @@ async def add(msg: types.Message):
 @dp.message(Command("remove"))
 async def remove(msg: types.Message):
     try:
-        url = msg.text.split(" ", 1)[1]
-        delete_site(url, msg.chat.id)
-        await msg.answer(f"🗑 Удалено: {url}")
+        value = msg.text.split(" ", 1)[1].strip()
+
+        if value.isdigit():
+            url = delete_site_by_number(msg.chat.id, int(value))
+
+            if not url:
+                await msg.answer("⚠️ Нет сайта с таким номером. Проверь /list")
+                return
+
+            await msg.answer(f"🗑 Удалено: {url}")
+            return
+
+        delete_site(value.lower(), msg.chat.id)
+        await msg.answer(f"🗑 Удалено: {value.lower()}")
+
     except:
-        await msg.answer("Используй: /remove google.com")
+        await msg.answer("Используй: /remove 1 или /remove google.com")
 
 
 # --------- BACKGROUND JOB ---------

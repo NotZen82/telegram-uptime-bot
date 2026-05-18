@@ -62,6 +62,28 @@ def delete_site(url, chat_id):
     conn.close()
 
 
+def delete_site_by_number(chat_id, number):
+    sites = get_user_sites(chat_id)
+
+    if number < 1 or number > len(sites):
+        return None
+
+    url = sites[number - 1][0]
+
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+
+    c.execute(
+        "DELETE FROM sites WHERE url=? AND chat_id=?",
+        (url, chat_id)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return url
+
+
 def get_user_sites(chat_id):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
