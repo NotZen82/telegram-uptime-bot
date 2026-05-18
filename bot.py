@@ -46,6 +46,25 @@ def main_menu():
     return builder.as_markup()
 
 
+def refresh_menu():
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="🔄 Обновить",
+        callback_data="menu_check"
+    )
+
+    builder.button(
+        text="⬅️ Меню",
+        callback_data="menu_back"
+    )
+
+    builder.adjust(2)
+
+    return builder.as_markup()
+
+
+
 def sites_menu(sites):
     builder = InlineKeyboardBuilder()
 
@@ -317,7 +336,7 @@ async def callback_check(callback: types.CallbackQuery):
 
     await callback.message.edit_text(
         text,
-        reply_markup=main_menu()
+        reply_markup=refresh_menu()
     )
 
 
