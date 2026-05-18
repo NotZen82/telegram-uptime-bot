@@ -1,5 +1,9 @@
 import asyncio
 import time
+import socket
+import ssl
+
+from datetime import datetime, timezone
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -62,6 +66,31 @@ def refresh_menu():
     builder.adjust(2)
 
     return builder.as_markup()
+
+
+def check_ssl_expiry(domain):
+    try:
+        domain = domain.replace("https://", "").replace("http://", "")
+        domain = domain.split("/")[0]
+
+        context = ssl.create_default_context()
+
+        with socket.create_connection((domain, 443), timeout=10) as sock:
+            with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                cert = ssock.getpeercert()
+
+        expires_str = cert["notAfter"]
+        expires_date = datetime.strptime(
+            expires_str,
+            "%b %d %H:%M:%S %Y %Z"
+        ).replace(tzinfo=timezone.utc)
+
+        days_left = (expires_date - datetime.now(timezone.utc)).days
+
+        return days_left
+
+    except Exception:
+        return None
 
 
 
@@ -332,7 +361,20 @@ async def callback_check(callback: types.CallbackQuery):
             icon = "🔴"
             result = "DOWN"
 
-        text += f"{icon} {url} — {result}\n"
+        ssl_days = check_ssl_expiry(url)
+
+        if ssl_days is None:
+            ssl_text = "🔐 SSL: error"
+        elif ssl_days < 0:
+            ssl_text = f"🔐 SSL expired {abs(ssl_days)} days ago"
+        elif ssl_days <= 7:
+            ssl_text = f"🔐 SSL expires in {ssl_days} days ⚠️"
+        elif ssl_days <= 30:
+            ssl_text = f"🔐 SSL expires in {ssl_days} days"
+        else:
+            ssl_text = f"🔐 SSL: {ssl_days} days"
+
+        text += f"{icon} {url} — {result}\n{ssl_text}\n\n"
 
     await callback.message.edit_text(
         text,
