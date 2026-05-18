@@ -444,14 +444,52 @@ async def callback_check(callback: types.CallbackQuery):
 
             result = f"{response.status_code} — {elapsed}ms"
 
+        try:
+
+            import time
+            import requests
+
+            full_url = url
+
+            if not full_url.startswith("http"):
+                full_url = f"https://{full_url}"
+
+            start = time.time()
+
+            response = requests.get(full_url, timeout=10)
+
+            elapsed = round((time.time() - start) * 1000)
+
+            if response.status_code < 400:
+                icon = "🟢"
+
+            elif response.status_code < 500:
+                icon = "🟠"
+
+            else:
+                icon = "🔴"
+            result = f"HTTP {response.status_code} — {elapsed}ms"
+
+        except requests.exceptions.Timeout:
+            icon = "🔴"
+            result = "timeout"
+
+        except requests.exceptions.SSLError:
+            icon = "🔴"
+            result = "ssl error"
+
+        except requests.exceptions.ConnectionError:
+            icon = "🔴"
+            result = "dns/connection error"
+
         except Exception:
             icon = "🔴"
-            result = "DOWN"
+            result = "unknown error"
 
         ssl_days = check_ssl_expiry(url)
 
         if ssl_days is None:
-            ssl_text = "🔐 SSL: error"
+            ssl_text = ""
         elif ssl_days < 0:
             ssl_text = f"🔐 SSL expired {abs(ssl_days)} days ago"
         elif ssl_days <= 7:
