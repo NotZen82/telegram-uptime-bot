@@ -4,7 +4,7 @@ from aiogram.filters import Command
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config import BOT_TOKEN, CHECK_INTERVAL
-from db import init_db, add_site, delete_site, get_user_sites
+from db import init_db, add_site, delete_site, get_user_sites, site_exists
 from checker import check_sites
 
 bot = Bot(token=BOT_TOKEN)
@@ -25,9 +25,15 @@ async def start(msg: types.Message):
 @dp.message(Command("add"))
 async def add(msg: types.Message):
     try:
-        url = msg.text.split(" ", 1)[1]
+        url = msg.text.split(" ", 1)[1].strip().lower()
+
+        if site_exists(url, msg.chat.id):
+            await msg.answer(f"⚠️ Этот сайт уже есть в мониторинге: {url}")
+            return
+
         add_site(url, msg.chat.id)
         await msg.answer(f"➕ Добавлено: {url}")
+
     except:
         await msg.answer("Используй: /add google.com")
 
