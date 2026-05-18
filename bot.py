@@ -269,21 +269,26 @@ async def callback_add(callback: types.CallbackQuery):
     )
 
 
-@dp.callback_query(F.data == "menu_check")
+@@dp.callback_query(F.data == "menu_check")
 async def callback_check(callback: types.CallbackQuery):
+    await callback.answer()
+
     sites = get_user_sites(callback.message.chat.id)
 
     if not sites:
-        await callback.message.answer(
-            "📭 У тебя нет сайтов для проверки."
+        await callback.message.edit_text(
+            "📭 У тебя нет сайтов для проверки.",
+            reply_markup=main_menu()
         )
-        await callback.answer()
         return
+
+    await callback.message.edit_text("🔄 Проверяю сайты...")
 
     text = "🔎 Проверка сайтов:\n\n"
 
     for url, status in sites:
         try:
+            import time
             import requests
 
             full_url = url
@@ -292,9 +297,7 @@ async def callback_check(callback: types.CallbackQuery):
                 full_url = f"https://{full_url}"
 
             start = time.time()
-
             response = requests.get(full_url, timeout=10)
-
             elapsed = round((time.time() - start) * 1000)
 
             if response.status_code < 400:
@@ -312,12 +315,10 @@ async def callback_check(callback: types.CallbackQuery):
 
         text += f"{icon} {url} — {result}\n"
 
-    await callback.message.answer(
+    await callback.message.edit_text(
         text,
         reply_markup=main_menu()
     )
-
-    await callback.answer()
 
 
 
