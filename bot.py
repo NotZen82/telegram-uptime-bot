@@ -19,7 +19,8 @@ from db import (
     delete_site,
     get_user_sites,
     site_exists,
-    delete_site_by_number
+    delete_site_by_number,
+    get_user_incidents
 )
 
 from checker import check_sites
@@ -44,6 +45,7 @@ def main_menu():
     builder.button(text="📋 Список сайтов", callback_data="menu_list")
     builder.button(text="📊 Статус", callback_data="menu_status")
     builder.button(text="🔎 Проверить сейчас", callback_data="menu_check")
+    builder.button(text="📉 Инциденты", callback_data="menu_incidents")
     builder.button(text="➕ Как добавить сайт", callback_data="menu_add_help")
 
     builder.adjust(1)
@@ -66,6 +68,50 @@ def refresh_menu():
     builder.adjust(2)
 
     return builder.as_markup()
+
+
+@dp.callback_query(F.data == "menu_incidents")
+async def menu_incidents(callback: types.CallbackQuery):
+    rows = get_user_incidents(callback.message.chat.id)
+
+    if not rows:
+        await callback.message.answer(
+            "📭 Инцидентов пока нет.",
+            reply_markup=main_menu()
+        )
+        await callback.answer()
+        return
+
+    text = "📉 Последние инциденты:\n\n"
+
+    for url, status, created_at in rows:
+        icon = "🔴" if status == "DOWN" else "🟢"
+        text += f"{icon} {url} — {status}\n"
+        text += f"🕒 {created_at}\n\n"
+
+    await callback.message.answer(
+        text,
+        reply_markup=main_menu()
+    )
+    await callback.answer()
+
+
+@dp.message(Command("incidents"))
+async def incidents(msg: types.Message):
+    rows = get_user_incidents(msg.chat.id)
+
+    if not rows:
+        await msg.answer("📭 Инцидентов пока нет.")
+        return
+
+    text = "📉 Последние инциденты:\n\n"
+
+    for url, status, created_at in rows:
+        icon = "🔴" if status == "DOWN" else "🟢"
+        text += f"{icon} {url} — {status}\n"
+        text += f"🕒 {created_at}\n\n"
+
+    await msg.answer(text)
 
 
 def check_ssl_expiry(domain):

@@ -18,6 +18,7 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         with conn.cursor() as c:
+
             c.execute("""
                 CREATE TABLE IF NOT EXISTS sites (
                     id SERIAL PRIMARY KEY,
@@ -34,7 +35,53 @@ def init_db():
                 ADD COLUMN IF NOT EXISTS ssl_alert_sent BOOLEAN DEFAULT FALSE
             """)
 
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS incidents (
+                    id SERIAL PRIMARY KEY,
+                    site_id INTEGER REFERENCES sites(id) ON DELETE CASCADE,
+                    url TEXT NOT NULL,
+                    chat_id BIGINT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+
         conn.commit()
+
+
+def add_incident(site_id, url, chat_id, status):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                """
+                INSERT INTO incidents (site_id, url, chat_id, status)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (site_id, url, chat_id, status)
+            )
+        conn.commit()
+
+
+def get_user_incidents(chat_id, limit=10):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                """
+                SELECT url, status, created_at
+                FROM incidents
+                WHERE chat_id=%s
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (chat_id, limit)
+            )
+            rows = c.fetchall()
+
+    return [
+        (row["url"], row["status"], row["created_at"])
+        for row in rows
+    ]
+
 
 
 def update_ssl_alert_status(site_id, alert_sent):

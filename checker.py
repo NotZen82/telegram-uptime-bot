@@ -3,7 +3,12 @@ import socket
 import ssl
 
 from aiogram import Bot
-from db import get_sites, update_site_status, update_ssl_alert_status
+from db import (
+    get_sites,
+    update_site_status,
+    update_ssl_alert_status,
+    add_incident
+)
 
 from datetime import datetime, timezone
 
@@ -54,8 +59,10 @@ async def check_sites(bot: Bot):
 
         if old_status == "UNKNOWN":
             update_site_status(site_id, new_status)
+
         elif old_status != new_status:
             update_site_status(site_id, new_status)
+            add_incident(site_id, url, chat_id, new_status)
 
             if new_status == "DOWN":
                 await bot.send_message(chat_id, f"🔴 Сайт упал: {url}")
