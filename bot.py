@@ -420,29 +420,6 @@ async def callback_check(callback: types.CallbackQuery):
     text = "🔎 Проверка сайтов:\n\n"
 
     for url, status in sites:
-        try:
-            import time
-            import requests
-
-            full_url = url
-
-            if not full_url.startswith("http"):
-                full_url = f"https://{full_url}"
-
-            start = time.time()
-            response = requests.get(full_url, timeout=10)
-            elapsed = round((time.time() - start) * 1000)
-
-            if response.status_code < 400:
-                icon = "🟢"
-
-            elif response.status_code < 500:
-                icon = "🟠"
-
-            else:
-                icon = "🔴"
-
-            result = f"{response.status_code} — {elapsed}ms"
 
         try:
 
@@ -499,7 +476,12 @@ async def callback_check(callback: types.CallbackQuery):
         else:
             ssl_text = f"🔐 SSL: {ssl_days} days"
 
-        text += f"{icon} {url} — {result}\n{ssl_text}\n\n"
+        text += f"{icon} {url} — {result}\n"
+
+        if ssl_text:
+            text += f"{ssl_text}\n"
+
+        text += "\n"
 
     await callback.message.edit_text(
         text,
