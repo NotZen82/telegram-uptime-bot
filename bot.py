@@ -17,9 +17,10 @@ async def start(msg: types.Message):
     await msg.answer(
         "👋 Uptime бот активен\n\n"
         "Команды:\n"
-        "/add google.com\n"
-        "/list (пока нет)\n"
-        "/remove google.com"
+        "/add google.com — добавить сайт\n"
+        "/list — список сайтов\n"
+        "/status — краткий статус\n"
+        "/remove 1 — удалить сайт"
     )
 
 @dp.message(Command("add"))
@@ -36,6 +37,36 @@ async def add(msg: types.Message):
 
     except:
         await msg.answer("Используй: /add google.com")
+
+@dp.message(Command("status"))
+async def status_summary(msg: types.Message):
+    sites = get_user_sites(msg.chat.id)
+
+    if not sites:
+        await msg.answer("📭 У тебя пока нет сайтов для мониторинга.")
+        return
+
+    up = 0
+    down = 0
+    unknown = 0
+
+    for url, status in sites:
+        if status == "UP":
+            up += 1
+        elif status == "DOWN":
+            down += 1
+        else:
+            unknown += 1
+
+    total = len(sites)
+
+    await msg.answer(
+        "📊 Статус мониторинга:\n\n"
+        f"🟢 UP: {up}\n"
+        f"🔴 DOWN: {down}\n"
+        f"⚪ UNKNOWN: {unknown}\n"
+        f"Всего: {total}"
+    )
 
 
 @dp.message(Command("remove"))
