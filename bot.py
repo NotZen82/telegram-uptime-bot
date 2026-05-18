@@ -435,8 +435,10 @@ async def callback_check(callback: types.CallbackQuery):
 
             if response.status_code < 400:
                 icon = "🟢"
+
             elif response.status_code < 500:
                 icon = "🟠"
+
             else:
                 icon = "🔴"
 

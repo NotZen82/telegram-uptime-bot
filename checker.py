@@ -21,10 +21,45 @@ def normalize_url(url):
 
 def check_url(url):
     try:
-        response = requests.get(normalize_url(url), timeout=10)
-        return response.status_code < 400
-    except requests.RequestException:
-        return False
+        full_url = url
+
+        if not full_url.startswith("http"):
+            full_url = f"https://{full_url}"
+
+        response = requests.get(full_url, timeout=10)
+
+        if response.status_code < 400:
+            return "UP"
+
+        return f"HTTP {response.status_code}"
+
+
+    except requests.exceptions.Timeout:
+
+        icon = "🔴"
+
+        result = "timeout"
+
+
+    except requests.exceptions.SSLError:
+
+        icon = "🔴"
+
+        result = "ssl error"
+
+
+    except requests.exceptions.ConnectionError:
+
+        icon = "🔴"
+
+        result = "dns/connection error"
+
+
+    except Exception:
+
+        icon = "🔴"
+
+        result = "unknown error"
 
 
 def check_ssl_expiry(domain):
@@ -54,8 +89,7 @@ async def check_sites(bot: Bot):
     sites = get_sites()
 
     for site_id, url, chat_id, old_status, ssl_alert_sent in sites:
-        is_up = check_url(url)
-        new_status = "UP" if is_up else "DOWN"
+        new_status = check_url(url)
 
         if old_status == "UNKNOWN":
             update_site_status(site_id, new_status)
@@ -64,8 +98,13 @@ async def check_sites(bot: Bot):
             update_site_status(site_id, new_status)
             add_incident(site_id, url, chat_id, new_status)
 
-            if new_status == "DOWN":
-                await bot.send_message(chat_id, f"🔴 Сайт упал: {url}")
+            if new_status != "UP":
+                await bot.send_message(
+                    chat_id,
+                    f"🔴 Проблема с сайтом:\n\n"
+                    f"🌐 {url}\n"
+                    f"⚠️ {new_status}"
+                )
             else:
                 await bot.send_message(chat_id, f"🟢 Сайт снова работает: {url}")
 
