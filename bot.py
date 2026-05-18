@@ -3,6 +3,10 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.filters import Command
+from aiogram import F
+
 from config import BOT_TOKEN, CHECK_INTERVAL
 from db import init_db, add_site, delete_site, get_user_sites, site_exists, delete_site_by_number
 from checker import check_sites
@@ -15,14 +19,23 @@ dp = Dispatcher()
 @dp.message(Command("start"))
 async def start(msg: types.Message):
     await msg.answer(
-        "👋 Uptime бот активен\n\n"
-        "Команды:\n"
-        "/add google.com — добавить сайт\n"
-        "/list — список сайтов\n"
-        "/status — краткий статус\n"
-        "/remove 1 — удалить сайт\n"
-        "/check — проверить сейчас"
+        "👋 Uptime бот активен",
+        reply_markup=main_menu()
     )
+
+
+def main_menu():
+    builder = InlineKeyboardBuilder()
+
+    builder.button(text="➕ Добавить", callback_data="add")
+    builder.button(text="📋 Список", callback_data="list")
+
+    builder.button(text="📊 Статус", callback_data="status")
+    builder.button(text="🔎 Проверить", callback_data="check")
+
+    builder.adjust(2)
+
+    return builder.as_markup()
 
 @dp.message(Command("add"))
 async def add(msg: types.Message):
@@ -69,6 +82,68 @@ async def status_summary(msg: types.Message):
         f"Всего: {total}"
     )
 
+
+@dp.callback_query(F.data == "list")
+async def callback_list(callback: types.CallbackQuery):
+    sites = get_user_sites(callback.message.chat.id)
+
+    if not sites:
+        await callback.message.answer(
+            "📭 У тебя пока нет сайтов."
+        )
+        return
+
+    text = "📡 Твои сайты:\n\n"
+
+    for i, site in enumerate(sites, start=1):
+        url, status = site
+
+        if status == "UP":
+            icon = "🟢"
+        elif status == "DOWN":
+            icon = "🔴"
+        else:
+            icon = "⚪"
+
+        text += f"{i}. {icon} {url}\n"
+
+    await callback.message.answer(text)
+
+
+@dp.callback_query(F.data == "status")
+async def callback_status(callback: types.CallbackQuery):
+    sites = get_user_sites(callback.message.chat.id)
+
+    up = down = unknown = 0
+
+    for url, status in sites:
+        if status == "UP":
+            up += 1
+        elif status == "DOWN":
+            down += 1
+        else:
+            unknown += 1
+
+    await callback.message.answer(
+        f"📊 Статус:\n\n"
+        f"🟢 UP: {up}\n"
+        f"🔴 DOWN: {down}\n"
+        f"⚪ UNKNOWN: {unknown}"
+    )
+
+
+@dp.callback_query(F.data == "add")
+async def callback_add(callback: types.CallbackQuery):
+    await callback.message.answer(
+        "Используй:\n/add google.com"
+    )
+
+
+@dp.callback_query(F.data == "check")
+async def callback_check(callback: types.CallbackQuery):
+    await callback.message.answer(
+        "Используй команду /check"
+    )
 
 @dp.message(Command("check"))
 async def manual_check(msg: types.Message):
