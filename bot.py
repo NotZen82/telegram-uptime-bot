@@ -20,7 +20,8 @@ async def start(msg: types.Message):
         "/add google.com — добавить сайт\n"
         "/list — список сайтов\n"
         "/status — краткий статус\n"
-        "/remove 1 — удалить сайт"
+        "/remove 1 — удалить сайт\n"
+        "/check — проверить сейчас"
     )
 
 @dp.message(Command("add"))
@@ -67,6 +68,43 @@ async def status_summary(msg: types.Message):
         f"⚪ UNKNOWN: {unknown}\n"
         f"Всего: {total}"
     )
+
+
+@dp.message(Command("check"))
+async def manual_check(msg: types.Message):
+    sites = get_user_sites(msg.chat.id)
+
+    if not sites:
+        await msg.answer("📭 У тебя нет сайтов для проверки.")
+        return
+
+    text = "🔎 Проверка сайтов:\n\n"
+
+    for url, status in sites:
+        try:
+            import requests
+
+            full_url = url
+
+            if not full_url.startswith("http"):
+                full_url = f"https://{full_url}"
+
+            response = requests.get(full_url, timeout=10)
+
+            if response.status_code < 400:
+                icon = "🟢"
+                result = "UP"
+            else:
+                icon = "🔴"
+                result = f"HTTP {response.status_code}"
+
+        except:
+            icon = "🔴"
+            result = "DOWN"
+
+        text += f"{icon} {url} — {result}\n"
+
+    await msg.answer(text)
 
 
 @dp.message(Command("remove"))
