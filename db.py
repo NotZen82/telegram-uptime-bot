@@ -38,6 +38,19 @@ def add_site(url, chat_id):
     conn.commit()
     conn.close()
 
+def site_exists(url, chat_id):
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+
+    c.execute(
+        "SELECT id FROM sites WHERE url=? AND chat_id=?",
+        (url, chat_id)
+    )
+    row = c.fetchone()
+
+    conn.close()
+    return row is not None
+
 
 def delete_site(url, chat_id):
     conn = sqlite3.connect(DB_NAME)
@@ -81,15 +94,3 @@ def update_site_status(site_id, status):
     conn.close()
 
 
-def site_exists(url, chat_id):
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-
-    c.execute(
-        "SELECT id FROM sites WHERE url=? AND chat_id=?",
-        (url, chat_id)
-    )
-    row = c.fetchone()
-
-    conn.close()
-    return row is not None
