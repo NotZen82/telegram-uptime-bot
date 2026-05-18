@@ -1,14 +1,22 @@
 import asyncio
-from aiogram import Bot, Dispatcher, types
+
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.filters import Command
-from aiogram import F
-
 from config import BOT_TOKEN, CHECK_INTERVAL
-from db import init_db, add_site, delete_site, get_user_sites, site_exists, delete_site_by_number
+
+from db import (
+    init_db,
+    add_site,
+    delete_site,
+    get_user_sites,
+    site_exists,
+    delete_site_by_number
+)
+
 from checker import check_sites
 
 bot = Bot(token=BOT_TOKEN)
@@ -19,7 +27,8 @@ dp = Dispatcher()
 @dp.message(Command("start"))
 async def start(msg: types.Message):
     await msg.answer(
-        "👋 Uptime бот активен",
+        "👋 Uptime бот активен\n\n"
+        "Выбери действие:",
         reply_markup=main_menu()
     )
 
@@ -27,15 +36,134 @@ async def start(msg: types.Message):
 def main_menu():
     builder = InlineKeyboardBuilder()
 
-    builder.button(text="➕ Добавить", callback_data="add")
-    builder.button(text="📋 Список", callback_data="list")
+    builder.button(text="📋 Список сайтов", callback_data="menu_list")
+    builder.button(text="📊 Статус", callback_data="menu_status")
+    builder.button(text="🔎 Проверить сейчас", callback_data="menu_check")
+    builder.button(text="➕ Как добавить сайт", callback_data="menu_add_help")
 
-    builder.button(text="📊 Статус", callback_data="status")
-    builder.button(text="🔎 Проверить", callback_data="check")
+    builder.adjust(1)
+    return builder.as_markup()
 
+
+def sites_menu(sites):
+    builder = InlineKeyboardBuilder()
+
+    for i, site in enumerate(sites, start=1):
+        url, status = site
+        builder.button(
+            text=f"🗑 Удалить {i}",
+            callback_data=f"delete_site:{i}"
+        )
+
+    builder.button(text="⬅️ Назад", callback_data="menu_back")
     builder.adjust(2)
 
     return builder.as_markup()
+
+
+@dp.callback_query(F.data == "menu_back")
+async def menu_back(callback: types.CallbackQuery):
+    await callback.message.answer(
+        "📡 Главное меню:",
+        reply_markup=main_menu()
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "menu_add_help")
+async def menu_add_help(callback: types.CallbackQuery):
+    await callback.message.answer(
+        "➕ Чтобы добавить сайт, напиши:\n\n"
+        "/add google.com"
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "menu_list")
+async def menu_list(callback: types.CallbackQuery):
+    sites = get_user_sites(callback.message.chat.id)
+
+    if not sites:
+        await callback.message.answer(
+            "📭 У тебя пока нет сайтов.\n\n"
+            "Добавь первый:\n/add google.com",
+            reply_markup=main_menu()
+        )
+        await callback.answer()
+        return
+
+    text = "📋 Твои сайты:\n\n"
+
+    for i, site in enumerate(sites, start=1):
+        url, status = site
+
+        if status == "UP":
+            icon = "🟢"
+        elif status == "DOWN":
+            icon = "🔴"
+        else:
+            icon = "⚪"
+
+        text += f"{i}. {icon} {url} — {status}\n"
+
+    await callback.message.answer(
+        text,
+        reply_markup=sites_menu(sites)
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "menu_status")
+async def menu_status(callback: types.CallbackQuery):
+    sites = get_user_sites(callback.message.chat.id)
+
+    if not sites:
+        await callback.message.answer("📭 У тебя пока нет сайтов.")
+        await callback.answer()
+        return
+
+    up = down = unknown = 0
+
+    for url, status in sites:
+        if status == "UP":
+            up += 1
+        elif status == "DOWN":
+            down += 1
+        else:
+            unknown += 1
+
+    await callback.message.answer(
+        "📊 Статус мониторинга:\n\n"
+        f"🟢 UP: {up}\n"
+        f"🔴 DOWN: {down}\n"
+        f"⚪ UNKNOWN: {unknown}\n"
+        f"Всего: {len(sites)}",
+        reply_markup=main_menu()
+    )
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("delete_site:"))
+async def delete_site_callback(callback: types.CallbackQuery):
+    number = int(callback.data.split(":")[1])
+
+    url = delete_site_by_number(
+        callback.message.chat.id,
+        number
+    )
+
+    if not url:
+        await callback.message.answer("⚠️ Сайт не найден. Обнови /list")
+        await callback.answer()
+        return
+
+    await callback.message.answer(
+        f"🗑 Удалено: {url}",
+        reply_markup=main_menu()
+    )
+    await callback.answer()
+
+
 
 @dp.message(Command("add"))
 async def add(msg: types.Message):
@@ -51,6 +179,7 @@ async def add(msg: types.Message):
 
     except:
         await msg.answer("Используй: /add google.com")
+
 
 @dp.message(Command("status"))
 async def status_summary(msg: types.Message):
@@ -139,11 +268,53 @@ async def callback_add(callback: types.CallbackQuery):
     )
 
 
-@dp.callback_query(F.data == "check")
+@dp.callback_query(F.data == "menu_check")
 async def callback_check(callback: types.CallbackQuery):
+    sites = get_user_sites(callback.message.chat.id)
+
+    if not sites:
+        await callback.message.answer(
+            "📭 У тебя нет сайтов для проверки."
+        )
+        await callback.answer()
+        return
+
+    text = "🔎 Проверка сайтов:\n\n"
+
+    for url, status in sites:
+        try:
+            import requests
+
+            full_url = url
+
+            if not full_url.startswith("http"):
+                full_url = f"https://{full_url}"
+
+            response = requests.get(full_url, timeout=10)
+
+            if response.status_code < 400:
+                icon = "🟢"
+                result = f"UP ({response.status_code})"
+            else:
+                icon = "🔴"
+                result = f"HTTP {response.status_code}"
+
+        except Exception:
+            icon = "🔴"
+            result = "DOWN"
+
+        text += f"{icon} {url} — {result}\n"
+
     await callback.message.answer(
-        "Используй команду /check"
+        text,
+        reply_markup=main_menu()
     )
+
+    await callback.answer()
+
+
+
+
 
 @dp.message(Command("check"))
 async def manual_check(msg: types.Message):
