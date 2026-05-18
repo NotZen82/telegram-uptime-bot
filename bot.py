@@ -28,6 +28,12 @@ from checker import check_sites
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+async def safe_answer(callback):
+    try:
+        await safe_answer(callback)
+    except:
+        pass
+
 # --------- COMMANDS ---------
 
 @dp.message(Command("start"))
@@ -73,7 +79,7 @@ def refresh_menu():
 
 @dp.callback_query(F.data == "menu_incidents")
 async def menu_incidents(callback: types.CallbackQuery):
-    await callback.answer()
+    await safe_answer(callback)
 
     rows = get_user_incidents(callback.message.chat.id)
 
@@ -159,7 +165,7 @@ def sites_menu(sites):
 
 @dp.callback_query(F.data == "menu_back")
 async def menu_back(callback: types.CallbackQuery):
-    await callback.answer()
+    await safe_answer(callback)
 
     await callback.message.edit_text(
         "📡 Главное меню:",
@@ -169,7 +175,7 @@ async def menu_back(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "menu_add_help")
 async def menu_add_help(callback: types.CallbackQuery):
-    await callback.answer()
+    await safe_answer(callback)
 
     await callback.message.edit_text(
         "➕ Чтобы добавить сайт, напиши:\n\n"
@@ -180,7 +186,7 @@ async def menu_add_help(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "menu_faq")
 async def menu_faq(callback: types.CallbackQuery):
-    await callback.answer()
+    await safe_answer(callback)
 
     text = (
         "❓ FAQ\n\n"
@@ -209,7 +215,7 @@ async def menu_faq(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "menu_list")
 async def menu_list(callback: types.CallbackQuery):
-    await callback.answer()
+    await safe_answer(callback)
 
     sites = get_user_sites(callback.message.chat.id)
 
@@ -243,7 +249,7 @@ async def menu_list(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "menu_status")
 async def menu_status(callback: types.CallbackQuery):
-    await callback.answer()
+    await safe_answer(callback)
 
     sites = get_user_sites(callback.message.chat.id)
 
@@ -276,7 +282,7 @@ async def menu_status(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data.startswith("delete_site:"))
 async def delete_site_callback(callback: types.CallbackQuery):
-    await callback.answer()
+    await safe_answer(callback)
 
     number = int(callback.data.split(":")[1])
 
@@ -404,7 +410,7 @@ async def callback_add(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "menu_check")
 async def callback_check(callback: types.CallbackQuery):
-    await callback.answer()
+    await safe_answer(callback)
 
     sites = get_user_sites(callback.message.chat.id)
 
