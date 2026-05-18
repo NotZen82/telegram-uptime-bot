@@ -87,8 +87,18 @@ async def list_sites(msg: types.Message):
         return
 
     text = "📡 Твои сайты:\n\n"
+
     for i, site in enumerate(sites, start=1):
-        text += f"{i}. {site[0]}\n"
+        url, status = site
+
+        if status == "UP":
+            icon = "🟢"
+        elif status == "DOWN":
+            icon = "🔴"
+        else:
+            icon = "⚪"
+
+        text += f"{i}. {icon} {url} — {status}\n"
 
     await msg.answer(text)
 
