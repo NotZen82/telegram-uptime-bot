@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -290,14 +291,20 @@ async def callback_check(callback: types.CallbackQuery):
             if not full_url.startswith("http"):
                 full_url = f"https://{full_url}"
 
+            start = time.time()
+
             response = requests.get(full_url, timeout=10)
+
+            elapsed = round((time.time() - start) * 1000)
 
             if response.status_code < 400:
                 icon = "🟢"
-                result = f"UP ({response.status_code})"
+            elif response.status_code < 500:
+                icon = "🟠"
             else:
                 icon = "🔴"
-                result = f"HTTP {response.status_code}"
+
+            result = f"{response.status_code} — {elapsed}ms"
 
         except Exception:
             icon = "🔴"
