@@ -47,6 +47,7 @@ def main_menu():
     builder.button(text="🔎 Проверить сейчас", callback_data="menu_check")
     builder.button(text="📉 Инциденты", callback_data="menu_incidents")
     builder.button(text="➕ Как добавить сайт", callback_data="menu_add_help")
+    builder.button(text="❓ FAQ", callback_data="menu_faq")
 
     builder.adjust(1)
     return builder.as_markup()
@@ -173,6 +174,35 @@ async def menu_add_help(callback: types.CallbackQuery):
     await callback.message.edit_text(
         "➕ Чтобы добавить сайт, напиши:\n\n"
         "/add google.com",
+        reply_markup=main_menu()
+    )
+
+
+@dp.callback_query(F.data == "menu_faq")
+async def menu_faq(callback: types.CallbackQuery):
+    await callback.answer()
+
+    text = (
+        "❓ FAQ\n\n"
+
+        "➕ Добавить сайт:\n"
+        "/add google.com\n\n"
+
+        "📋 Список сайтов:\n"
+        "/list\n\n"
+
+        "🗑 Удалить сайт:\n"
+        "/remove 1\n\n"
+
+        "🟢 UP — сайт работает\n"
+        "🔴 DOWN — сайт недоступен\n\n"
+
+        "🔐 SSL monitoring включён.\n"
+        "Бот предупредит перед истечением сертификата."
+    )
+
+    await callback.message.edit_text(
+        text,
         reply_markup=main_menu()
     )
 
