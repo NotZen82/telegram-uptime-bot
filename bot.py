@@ -57,6 +57,7 @@ def main_menu():
     builder.button(text="➕ Как добавить сайт", callback_data="menu_add_help")
     builder.button(text="❓ FAQ", callback_data="menu_faq")
     builder.button(text="🎧 Retro mode", callback_data="menu_retro")
+    builder.button(text="🧹 Очистить чат", callback_data="menu_cleanup")
 
 
     builder.adjust(1)
@@ -520,6 +521,30 @@ async def retro_track(callback: types.CallbackQuery):
     await callback.message.answer_document(
         FSInputFile(path),
         caption=f"{title}\n\n🎧 Retro Monitoring Mode"
+    )
+
+
+
+@dp.callback_query(F.data == "menu_cleanup")
+async def menu_cleanup(callback: types.CallbackQuery):
+    await safe_answer(callback)
+
+    chat_id = callback.message.chat.id
+    current_message_id = callback.message.message_id
+
+    deleted = 0
+
+    for msg_id in range(current_message_id - 50, current_message_id):
+        try:
+            await bot.delete_message(chat_id, msg_id)
+            deleted += 1
+        except Exception:
+            pass
+
+    await bot.send_message(
+        chat_id,
+        "📡 Главное меню:",
+        reply_markup=main_menu()
     )
 
 
