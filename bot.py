@@ -42,6 +42,8 @@ def main_menu():
     builder.button(text="📉 Инциденты", callback_data="menu_incidents")
     builder.button(text="➕ Как добавить сайт", callback_data="menu_add_help")
     builder.button(text="❓ FAQ", callback_data="menu_faq")
+    builder.button(text="🎧 Retro mode", callback_data="menu_retro")
+
 
     builder.adjust(1)
     return builder.as_markup()
@@ -235,6 +237,18 @@ async def incidents(msg: types.Message):
     await msg.answer(text)
 
 
+@dp.message(Command("retro"))
+async def retro(msg: types.Message):
+    await msg.answer(
+        "🎧 Retro Monitoring Mode\n\n"
+        "🎮 Doom vibes\n"
+        "💾 Windows 95 mood\n"
+        "🕹 8-bit terminal\n"
+        "📟 Sysadmin after midnight\n\n"
+        "Скоро тут будут MIDI-ссылки."
+    )
+
+
 # --------- CALLBACKS ---------
 
 @dp.callback_query(F.data == "menu_back")
@@ -266,20 +280,22 @@ async def menu_faq(callback: types.CallbackQuery):
         "❓ FAQ\n\n"
         "➕ Добавить сайт\n"
         "/add google.com\n\n"
+
         "📋 Список сайтов\n"
         "/list\n\n"
+
         "🗑 Удалить сайт\n"
         "/remove 1\n\n"
+
         "🟢 UP — сайт работает\n"
         "🟠 HTTP 4xx — предупреждение\n"
         "🔴 DOWN/ERROR — проблема\n\n"
-        "🔐 SSL monitoring включён.\n"
-        "Бот предупредит перед истечением сертификата."
-    )
 
-    await callback.message.edit_text(
-        text,
-        reply_markup=main_menu(),
+        "🔐 SSL monitoring включён.\n"
+        "Бот предупредит перед истечением сертификата.\n\n"
+
+        "🎧 Retro mode\n"
+        "/retro\n"
     )
 
 
@@ -424,3 +440,24 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+@dp.callback_query(F.data == "menu_retro")
+async def menu_retro(callback: types.CallbackQuery):
+    await safe_answer(callback)
+
+    text = (
+        "🎧 Retro Monitoring Mode\n\n"
+        "Пока сайты проверяются, можно включить олдскульное настроение:\n\n"
+        "🎮 Doom vibes\n"
+        "💾 Windows 95 mood\n"
+        "🕹 8-bit terminal\n"
+        "📟 Sysadmin after midnight\n\n"
+        "MIDI-плейлист можно добавить сюда ссылками.\n"
+        "Главное — не перезагружать сервер под музыку 😄"
+    )
+
+    await callback.message.edit_text(
+        text,
+        reply_markup=main_menu()
+    )
