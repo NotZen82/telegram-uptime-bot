@@ -323,7 +323,7 @@ async def menu_faq(callback: types.CallbackQuery):
         "/remove 1\n\n"
         "🟢 UP — сайт работает\n"
         "🟠 HTTP 4xx — предупреждение\n"
-        "🔴 DOWN/ERROR — проблема\n\n"
+        "🔴 DOWN — сайт недоступен\n\n"
         "🔐 SSL monitoring включён.\n"
         "Бот предупредит перед истечением сертификата.\n\n"
         "🎧 Retro mode — MIDI музыка"
