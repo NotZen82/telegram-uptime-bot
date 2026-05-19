@@ -31,8 +31,8 @@ dp = Dispatcher()
 
 async def safe_answer(callback):
     try:
-        await safe_answer(callback)
-    except:
+        await callback.answer()
+    except Exception:
         pass
 
 # --------- COMMANDS ---------
@@ -350,8 +350,6 @@ async def status_summary(msg: types.Message):
         f"Всего: {total}"
     )
 
-
-@dp.callback_query(F.data == "list")
 async def callback_list(callback: types.CallbackQuery):
     sites = get_user_sites(callback.message.chat.id)
 
@@ -378,7 +376,6 @@ async def callback_list(callback: types.CallbackQuery):
     await callback.message.answer(text)
 
 
-@dp.callback_query(F.data == "status")
 async def callback_status(callback: types.CallbackQuery):
     sites = get_user_sites(callback.message.chat.id)
 
@@ -400,7 +397,6 @@ async def callback_status(callback: types.CallbackQuery):
     )
 
 
-@dp.callback_query(F.data == "add")
 async def callback_add(callback: types.CallbackQuery):
     await callback.message.answer(
         "Используй:\n/add google.com"
@@ -603,30 +599,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-@dp.message(Command("list"))
-async def list_sites(msg: types.Message):
-    sites = get_user_sites(msg.chat.id)
-
-    if not sites:
-        await msg.answer("📭 У тебя пока нет сайтов для мониторинга.")
-        return
-
-    text = "📡 Твои сайты:\n\n"
-
-    for i, site in enumerate(sites, start=1):
-        url, status = site
-
-        if status == "UP":
-            icon = "🟢"
-        elif status == "DOWN":
-            icon = "🔴"
-        else:
-            icon = "⚪"
-
-        text += f"{i}. {icon} {url} — {status}\n"
-
-    await msg.answer(text)
-
-
