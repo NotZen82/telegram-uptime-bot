@@ -417,6 +417,26 @@ async def callback_check(callback: types.CallbackQuery):
         reply_markup=refresh_menu(),
     )
 
+@dp.callback_query(F.data == "menu_retro")
+async def menu_retro(callback: types.CallbackQuery):
+    await safe_answer(callback)
+
+    text = (
+        "🎧 Retro Monitoring Mode\n\n"
+        "Пока сайты проверяются, можно включить олдскульное настроение:\n\n"
+        "🎮 Doom vibes\n"
+        "💾 Windows 95 mood\n"
+        "🕹 8-bit terminal\n"
+        "📟 Sysadmin after midnight\n\n"
+        "Скоро тут будут MIDI-ссылки.\n"
+        "Главное — не перезагружать сервер под музыку 😄"
+    )
+
+    await callback.message.edit_text(
+        text,
+        reply_markup=main_menu()
+    )
+
 
 # --------- BACKGROUND JOB ---------
 
@@ -442,22 +462,3 @@ if __name__ == "__main__":
     asyncio.run(main())
 
 
-@dp.callback_query(F.data == "menu_retro")
-async def menu_retro(callback: types.CallbackQuery):
-    await safe_answer(callback)
-
-    text = (
-        "🎧 Retro Monitoring Mode\n\n"
-        "Пока сайты проверяются, можно включить олдскульное настроение:\n\n"
-        "🎮 Doom vibes\n"
-        "💾 Windows 95 mood\n"
-        "🕹 8-bit terminal\n"
-        "📟 Sysadmin after midnight\n\n"
-        "MIDI-плейлист можно добавить сюда ссылками.\n"
-        "Главное — не перезагружать сервер под музыку 😄"
-    )
-
-    await callback.message.edit_text(
-        text,
-        reply_markup=main_menu()
-    )
