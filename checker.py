@@ -26,7 +26,7 @@ def check_url(url):
         if not full_url.startswith("http"):
             full_url = f"https://{full_url}"
 
-        response = requests.get(full_url, timeout=10)
+        response = requests.get(full_url, timeout=5)
 
         if response.status_code < 400:
             return "UP"

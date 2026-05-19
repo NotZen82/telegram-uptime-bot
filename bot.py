@@ -439,7 +439,12 @@ async def callback_check(callback: types.CallbackQuery):
 
             start = time.time()
 
-            response = requests.get(full_url, timeout=10)
+            response = requests.get(
+                full_url,
+                timeout=5,
+                allow_redirects=True,
+                headers={"User-Agent": "Mozilla/5.0"}
+            )
 
             elapsed = round((time.time() - start) * 1000)
 
@@ -471,7 +476,7 @@ async def callback_check(callback: types.CallbackQuery):
             icon = "🔴"
             result = "unknown error"
 
-        ssl_days = check_ssl_expiry(url)
+        ssl_days = check_ssl_expiry(url) if icon in ("🟢", "🟠") else None
 
         if ssl_days is None:
             ssl_text = ""
