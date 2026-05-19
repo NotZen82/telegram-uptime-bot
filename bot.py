@@ -457,31 +457,28 @@ async def callback_check(callback: types.CallbackQuery):
 def retro_menu():
     builder = InlineKeyboardBuilder()
 
-    builder.button(
-        text="🎮 Doom vibes",
-        callback_data="retro:doom"
-    )
+    tracks = {
+        "beatles_yesterday": "Beatles • Yesterday",
+        "toto_africa": "Toto • Africa",
+        "queen_bohemian": "Queen • Bohemian Rhapsody",
+        "rick_astley": "Rick Astley • Never Gonna Give You Up",
+        "under_the_sea": "Under The Sea • Little Mermaid",
+        "pirates": "Pirates of the Caribbean • He's a Pirate",
+        "jd_souther": "J.D. Souther • You're Only Lonely",
+        "pink_there_you_go": "Pink • There You Go",
+        "beverly_hills": "Beverly Hills Cop • Axel F",
+        "eminem_mockingbird": "Eminem • Mockingbird",
+        "john_denver": "John Denver • Country Roads",
+        "the_clash": "The Clash • Should I Stay or Should I Go",
+    }
 
-    builder.button(
-        text="💾 Windows 95",
-        callback_data="retro:windows95"
-    )
+    for key, title in tracks.items():
+        builder.button(
+            text=f"🎵 {title}",
+            callback_data=f"retro:{key}"
+        )
 
-    builder.button(
-        text="🕹 Terminal",
-        callback_data="retro:terminal"
-    )
-
-    builder.button(
-        text="📟 After Midnight",
-        callback_data="retro:after-midnight"
-    )
-
-    builder.button(
-        text="⬅️ Меню",
-        callback_data="menu_back"
-    )
-
+    builder.button(text="⬅️ Меню", callback_data="menu_back")
     builder.adjust(1)
 
     return builder.as_markup()
@@ -515,10 +512,18 @@ async def retro_track(callback: types.CallbackQuery):
     track = callback.data.split(":")[1]
 
     tracks = {
-        "doom": ("music/doom.mid", "🎮 Doom vibes"),
-        "windows95": ("music/windows95.mid", "💾 Windows 95"),
-        "terminal": ("music/terminal.mid", "🕹 Terminal"),
-        "after-midnight": ("music/after-midnight.mid", "📟 After Midnight"),
+        "beatles_yesterday": ("music/Beatles • Yesterday.mid", "Beatles • Yesterday"),
+        "toto_africa": ("music/Toto • Africa.mid", "Toto • Africa"),
+        "queen_bohemian": ("music/Queen • Bohemian rhapsody.mid", "Queen • Bohemian Rhapsody"),
+        "rick_astley": ("music/Rick Astley • Never Gonna Give You Up.mid", "Rick Astley • Never Gonna Give You Up"),
+        "under_the_sea": ("music/Under The Sea • Little Mermaid.mid", "Under The Sea • Little Mermaid"),
+        "pirates": ("music/Pirates of the Caribbean • He's a Pirate.mid", "Pirates of the Caribbean • He's a Pirate"),
+        "jd_souther": ("music/J.D. Souther • You're Only Lonely.mid", "J.D. Souther • You're Only Lonely"),
+        "pink_there_you_go": ("music/Pink • There You Go.mid", "Pink • There You Go"),
+        "beverly_hills": ("music/Beverly Hills Cop • Axel F.mid", "Beverly Hills Cop • Axel F"),
+        "eminem_mockingbird": ("music/Eminem • Welcome 2 Detroit.mid", "Eminem • Welcome 2 Detroit"),
+        "john_denver": ("music/John Denver • Country_roads.mid", "John Denver • Country Roads"),
+        "the_clash": ("music/The Clash • Should I Stay or Should I Go.mid", "The Clash • Should I Stay or Should I Go"),
     }
 
     if track not in tracks:
@@ -529,7 +534,7 @@ async def retro_track(callback: types.CallbackQuery):
 
     await callback.message.answer_document(
         FSInputFile(path),
-        caption=f"{title}\n\n🎧 Retro Monitoring Mode"
+        caption=f"🎵 {title}\n\n🎧 Retro Monitoring Mode"
     )
 
 
