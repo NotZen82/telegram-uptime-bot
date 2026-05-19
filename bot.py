@@ -483,13 +483,12 @@ async def menu_retro(callback: types.CallbackQuery):
 
     text = (
         "🎧 Retro Monitoring Mode\n\n"
-        "Пока сайты проверяются, можно включить олдскульное настроение:\n\n"
+        "Пока сайты проверяются — включи немного олдскульного вайба:\n\n"
         "🎮 Doom vibes\n"
         "💾 Windows 95 mood\n"
         "🕹 8-bit terminal\n"
         "📟 Sysadmin after midnight\n\n"
-        "Скоро тут будут MIDI-ссылки.\n"
-        "Главное — не перезагружать сервер под музыку 😄"
+        "Выбери трек ниже и наслаждайся мониторингом."
     )
 
     await safe_edit(
