@@ -46,6 +46,16 @@ def init_db():
                 )
             """)
 
+            c.execute("""
+                ALTER TABLE incidents
+                ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP
+            """)
+
+            c.execute("""
+                ALTER TABLE incidents
+                ADD COLUMN IF NOT EXISTS duration_seconds INTEGER
+            """)
+
         conn.commit()
 
 
