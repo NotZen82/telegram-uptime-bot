@@ -42,6 +42,9 @@ def check_url(url):
         if response.status_code < 400:
             return "UP"
 
+        if response.status_code < 500:
+            return f"HTTP {response.status_code}"
+
         return f"HTTP {response.status_code}"
 
     except requests.exceptions.Timeout:
@@ -51,7 +54,16 @@ def check_url(url):
         return "SSL ERROR"
 
     except requests.exceptions.ConnectionError:
-        return "DNS/CONNECTION ERROR"
+        return "CONNECTION ERROR"
+
+    except requests.exceptions.InvalidURL:
+        return "INVALID URL"
+
+    except requests.exceptions.TooManyRedirects:
+        return "TOO MANY REDIRECTS"
+
+    except requests.exceptions.RequestException:
+        return "REQUEST ERROR"
 
     except Exception:
         return "UNKNOWN ERROR"

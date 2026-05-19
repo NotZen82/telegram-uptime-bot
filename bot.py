@@ -440,6 +440,18 @@ async def check_site_async(session, url):
     except aiohttp.ClientConnectorError:
         return url, "🔴", "dns/connection error"
 
+    except aiohttp.InvalidURL:
+        return url, "🔴", "invalid url"
+
+    except aiohttp.TooManyRedirects:
+        return url, "🔴", "too many redirects"
+
+    except aiohttp.ClientResponseError:
+        return url, "🔴", "response error"
+
+    except aiohttp.ClientError:
+        return url, "🔴", "connection error"
+
     except Exception:
         return url, "🔴", "unknown error"
 
