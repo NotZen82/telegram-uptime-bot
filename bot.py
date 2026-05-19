@@ -155,10 +155,19 @@ def retro_menu():
 
 @dp.message(Command("start"))
 async def start(msg: types.Message):
-    await msg.answer(
-        "👋 Uptime бот активен\n\n"
-        "Выбери действие:",
-        reply_markup=main_menu(),
+    chat_id = msg.chat.id
+    current_message_id = msg.message_id
+
+    for msg_id in range(current_message_id, current_message_id - 100, -1):
+        try:
+            await bot.delete_message(chat_id, msg_id)
+        except Exception:
+            pass
+
+    await bot.send_message(
+        chat_id,
+        "📡 Главное меню:",
+        reply_markup=main_menu()
     )
 
 
@@ -532,13 +541,9 @@ async def menu_cleanup(callback: types.CallbackQuery):
     chat_id = callback.message.chat.id
     current_message_id = callback.message.message_id
 
-    deleted = 0
-
-    # пробуем удалить последние 200 сообщений
-    for msg_id in range(current_message_id, current_message_id - 200, -1):
+    for msg_id in range(current_message_id, current_message_id - 100, -1):
         try:
             await bot.delete_message(chat_id, msg_id)
-            deleted += 1
         except Exception:
             pass
 
