@@ -1,4 +1,5 @@
 import asyncio
+from aiogram.types import FSInputFile
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -443,6 +444,39 @@ async def callback_check(callback: types.CallbackQuery):
         reply_markup=refresh_menu(),
     )
 
+def retro_menu():
+    builder = InlineKeyboardBuilder()
+
+    builder.button(
+        text="🎮 Doom vibes",
+        callback_data="retro:doom"
+    )
+
+    builder.button(
+        text="💾 Windows 95",
+        callback_data="retro:windows95"
+    )
+
+    builder.button(
+        text="🕹 Terminal",
+        callback_data="retro:terminal"
+    )
+
+    builder.button(
+        text="📟 After Midnight",
+        callback_data="retro:after-midnight"
+    )
+
+    builder.button(
+        text="⬅️ Меню",
+        callback_data="menu_back"
+    )
+
+    builder.adjust(1)
+
+    return builder.as_markup()
+
+
 @dp.callback_query(F.data == "menu_retro")
 async def menu_retro(callback: types.CallbackQuery):
     await safe_answer(callback)
@@ -461,7 +495,32 @@ async def menu_retro(callback: types.CallbackQuery):
     await safe_edit(
         callback.message,
         text,
-        reply_markup=main_menu()
+        reply_markup=retro_menu()
+    )
+
+
+@dp.callback_query(F.data.startswith("retro:"))
+async def retro_track(callback: types.CallbackQuery):
+    await safe_answer(callback)
+
+    track = callback.data.split(":")[1]
+
+    tracks = {
+        "doom": ("music/doom.mid", "🎮 Doom vibes"),
+        "windows95": ("music/windows95.mid", "💾 Windows 95"),
+        "terminal": ("music/terminal.mid", "🕹 Terminal"),
+        "after-midnight": ("music/after-midnight.mid", "📟 After Midnight"),
+    }
+
+    if track not in tracks:
+        await callback.message.answer("Трек не найден.")
+        return
+
+    path, title = tracks[track]
+
+    await callback.message.answer_document(
+        FSInputFile(path),
+        caption=f"{title}\n\n🎧 Retro Monitoring Mode"
     )
 
 
