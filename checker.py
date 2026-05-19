@@ -1,8 +1,11 @@
-import requests
+import asyncio
 import socket
 import ssl
+from datetime import datetime, timezone
 
+import requests
 from aiogram import Bot
+
 from db import (
     get_sites,
     update_site_status,
@@ -10,56 +13,48 @@ from db import (
     add_incident
 )
 
-from datetime import datetime, timezone
+
+async def auto_delete(message, delay=60):
+    await asyncio.sleep(delay)
+
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
 
 def normalize_url(url):
     if url.startswith("http://") or url.startswith("https://"):
         return url
+
     return f"https://{url}"
 
 
 def check_url(url):
     try:
-        full_url = url
-
-        if not full_url.startswith("http"):
-            full_url = f"https://{full_url}"
-
-        response = requests.get(full_url, timeout=5)
+        response = requests.get(
+            normalize_url(url),
+            timeout=5,
+            allow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
 
         if response.status_code < 400:
             return "UP"
 
         return f"HTTP {response.status_code}"
 
-
     except requests.exceptions.Timeout:
-
-        icon = "🔴"
-
-        result = "timeout"
-
+        return "TIMEOUT"
 
     except requests.exceptions.SSLError:
-
-        icon = "🔴"
-
-        result = "ssl error"
-
+        return "SSL ERROR"
 
     except requests.exceptions.ConnectionError:
-
-        icon = "🔴"
-
-        result = "dns/connection error"
-
+        return "DNS/CONNECTION ERROR"
 
     except Exception:
-
-        icon = "🔴"
-
-        result = "unknown error"
+        return "UNKNOWN ERROR"
 
 
 def check_ssl_expiry(domain):
@@ -69,7 +64,7 @@ def check_ssl_expiry(domain):
 
         context = ssl.create_default_context()
 
-        with socket.create_connection((domain, 443), timeout=10) as sock:
+        with socket.create_connection((domain, 443), timeout=5) as sock:
             with context.wrap_socket(sock, server_hostname=domain) as ssock:
                 cert = ssock.getpeercert()
 
@@ -99,14 +94,19 @@ async def check_sites(bot: Bot):
             add_incident(site_id, url, chat_id, new_status)
 
             if new_status != "UP":
-                await bot.send_message(
+                message = await bot.send_message(
                     chat_id,
                     f"🔴 Проблема с сайтом:\n\n"
                     f"🌐 {url}\n"
                     f"⚠️ {new_status}"
                 )
             else:
-                await bot.send_message(chat_id, f"🟢 Сайт снова работает: {url}")
+                message = await bot.send_message(
+                    chat_id,
+                    f"🟢 Сайт снова работает: {url}"
+                )
+
+            asyncio.create_task(auto_delete(message, delay=60))
 
         ssl_days = check_ssl_expiry(url)
 
@@ -114,12 +114,14 @@ async def check_sites(bot: Bot):
             continue
 
         if ssl_days <= 7 and not ssl_alert_sent:
-            await bot.send_message(
+            message = await bot.send_message(
                 chat_id,
                 f"⚠️ SSL сертификат скоро истекает:\n\n"
                 f"🌐 {url}\n"
                 f"🔐 Осталось дней: {ssl_days}"
             )
+
+            asyncio.create_task(auto_delete(message, delay=60))
             update_ssl_alert_status(site_id, True)
 
         if ssl_days > 7 and ssl_alert_sent:
