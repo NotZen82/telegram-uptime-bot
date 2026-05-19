@@ -26,6 +26,8 @@ from db import (
 
 from checker import check_sites
 
+from monitor import check_many_sites, ssl_text
+
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
