@@ -321,12 +321,12 @@ async def menu_faq(callback: types.CallbackQuery):
         "/list\n\n"
         "🗑 Удалить сайт\n"
         "/remove 1\n\n"
-        "🟢 UP — сайт работает\n"
+        "🟢 UP — работает\n"
         "🟠 HTTP 4xx — предупреждение\n"
-        "🔴 DOWN — сайт недоступен\n\n"
+        "🔴 DOWN — недоступен\n\n"
         "🔐 SSL monitoring включён.\n"
         "Бот предупредит перед истечением сертификата.\n\n"
-        "🎧 Retro mode — MIDI музыка"
+        "🎧 Retro mode — oldschool MIDI vibes"
     )
 
     await safe_edit(
