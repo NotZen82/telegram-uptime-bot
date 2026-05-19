@@ -92,7 +92,7 @@ async def check_site(session: aiohttp.ClientSession, url: str) -> CheckResult:
                 icon = "🔴"
                 result = f"HTTP {code} — {elapsed}ms"
 
-            ssl_days = check_ssl_expiry(url) if icon in ("🟢", "🟠") else None
+            ssl_days = check_ssl_expiry(url) if status == "UP" else None
 
             return CheckResult(url, status, icon, result, ssl_days)
 
