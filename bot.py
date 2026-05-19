@@ -534,7 +534,8 @@ async def menu_cleanup(callback: types.CallbackQuery):
 
     deleted = 0
 
-    for msg_id in range(current_message_id - 50, current_message_id):
+    # пробуем удалить последние 200 сообщений
+    for msg_id in range(current_message_id, current_message_id - 200, -1):
         try:
             await bot.delete_message(chat_id, msg_id)
             deleted += 1
