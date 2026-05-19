@@ -177,3 +177,5 @@ def get_user_incidents(chat_id, limit=10):
         (row["url"], row["status"], row["created_at"])
         for row in rows
     ]
+
+

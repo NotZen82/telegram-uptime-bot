@@ -142,3 +142,13 @@ def ssl_text(ssl_days: int | None) -> str:
         return f"🔐 SSL expires in {ssl_days} days"
 
     return f"🔐 SSL: {ssl_days} days"
+
+
+def short_url(url: str) -> str:
+    return (
+        url
+        .replace("https://", "")
+        .replace("http://", "")
+    )
+
+
