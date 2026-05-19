@@ -326,8 +326,7 @@ async def menu_faq(callback: types.CallbackQuery):
         "🔴 DOWN/ERROR — проблема\n\n"
         "🔐 SSL monitoring включён.\n"
         "Бот предупредит перед истечением сертификата.\n\n"
-        "🎧 Retro mode\n"
-        "/retro"
+        "🎧 Retro mode — MIDI музыка"
     )
 
     await safe_edit(
