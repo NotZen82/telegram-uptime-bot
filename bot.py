@@ -317,22 +317,23 @@ async def menu_faq(callback: types.CallbackQuery):
         "❓ FAQ\n\n"
         "➕ Добавить сайт\n"
         "/add google.com\n\n"
-
         "📋 Список сайтов\n"
         "/list\n\n"
-
         "🗑 Удалить сайт\n"
         "/remove 1\n\n"
-
         "🟢 UP — сайт работает\n"
         "🟠 HTTP 4xx — предупреждение\n"
         "🔴 DOWN/ERROR — проблема\n\n"
-
         "🔐 SSL monitoring включён.\n"
         "Бот предупредит перед истечением сертификата.\n\n"
-
         "🎧 Retro mode\n"
-        "/retro\n"
+        "/retro"
+    )
+
+    await safe_edit(
+        callback.message,
+        text,
+        reply_markup=main_menu()
     )
 
 
