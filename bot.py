@@ -33,6 +33,19 @@ async def safe_answer(callback: types.CallbackQuery):
         pass
 
 
+async def safe_edit(message, text, reply_markup=None):
+    try:
+        await message.edit_text(
+            text,
+            reply_markup=reply_markup
+        )
+    except Exception as e:
+        if "message is not modified" in str(e):
+            return
+
+        raise e
+
+
 def main_menu():
     builder = InlineKeyboardBuilder()
 
@@ -445,7 +458,8 @@ async def menu_retro(callback: types.CallbackQuery):
         "Главное — не перезагружать сервер под музыку 😄"
     )
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback.message,
         text,
         reply_markup=main_menu()
     )
