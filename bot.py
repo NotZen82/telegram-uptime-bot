@@ -405,11 +405,13 @@ async def callback_add(callback: types.CallbackQuery):
 async def check_site_async(session, url):
     full_url = url
 
-    if not full_url.startswith("http"):
+    if not full_url.startswith(("http://", "https://")):
         full_url = f"https://{full_url}"
 
     try:
         start = time.time()
+
+        print(full_url)
 
         async with session.get(
             full_url,
