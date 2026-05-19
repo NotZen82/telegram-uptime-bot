@@ -123,6 +123,19 @@ def build_check_text(results):
     return text
 
 
+def retro_menu():
+    builder = InlineKeyboardBuilder()
+
+    builder.button(text="🎮 Doom vibes", callback_data="retro:doom")
+    builder.button(text="💾 Windows 95 mood", callback_data="retro:win95")
+    builder.button(text="🕹 8-bit terminal", callback_data="retro:terminal")
+    builder.button(text="📟 After midnightl", callback_data="retro:after-midnight")
+    builder.button(text="⬅️ Меню", callback_data="menu_back")
+
+    builder.adjust(1)
+    return builder.as_markup()
+
+
 # --------- COMMANDS ---------
 
 @dp.message(Command("start"))
