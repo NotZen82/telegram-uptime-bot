@@ -2,6 +2,7 @@ import asyncio
 import time
 import socket
 import ssl
+import aiohttp
 
 from datetime import datetime, timezone
 
@@ -303,8 +304,6 @@ async def delete_site_callback(callback: types.CallbackQuery):
         reply_markup=main_menu()
     )
 
-
-
 @dp.message(Command("add"))
 async def add(msg: types.Message):
     try:
@@ -407,6 +406,47 @@ async def callback_add(callback: types.CallbackQuery):
         "Используй:\n/add google.com"
     )
 
+async def check_site_async(session, url):
+    full_url = url
+
+    if not full_url.startswith("http"):
+        full_url = f"https://{full_url}"
+
+    try:
+        start = time.time()
+
+        async with session.get(
+            full_url,
+            timeout=aiohttp.ClientTimeout(total=5),
+            allow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0"}
+        ) as response:
+            elapsed = round((time.time() - start) * 1000)
+            status_code = response.status
+
+            if status_code < 400:
+                icon = "🟢"
+            elif status_code < 500:
+                icon = "🟠"
+            else:
+                icon = "🔴"
+
+            result = f"HTTP {status_code} — {elapsed}ms"
+
+            return url, icon, result
+
+    except asyncio.TimeoutError:
+        return url, "🔴", "timeout"
+
+    except aiohttp.ClientConnectorCertificateError:
+        return url, "🔴", "ssl error"
+
+    except aiohttp.ClientConnectorError:
+        return url, "🔴", "dns/connection error"
+
+    except Exception:
+        return url, "🔴", "unknown error"
+
 
 @dp.callback_query(F.data == "menu_check")
 async def callback_check(callback: types.CallbackQuery):
@@ -425,57 +465,15 @@ async def callback_check(callback: types.CallbackQuery):
 
     text = "🔎 Проверка сайтов:\n\n"
 
-    for url, status in sites:
+    async with aiohttp.ClientSession() as session:
+        tasks = [
+            check_site_async(session, url)
+            for url, status in sites
+        ]
 
-        try:
+        results = await asyncio.gather(*tasks)
 
-            import time
-            import requests
-
-            full_url = url
-
-            if not full_url.startswith("http"):
-                full_url = f"https://{full_url}"
-
-            start = time.time()
-
-            response = requests.get(
-                full_url,
-                timeout=5,
-                allow_redirects=True,
-                headers={"User-Agent": "Mozilla/5.0"}
-            )
-
-            elapsed = round((time.time() - start) * 1000)
-
-            if response.status_code < 400:
-                icon = "🟢"
-                result = f"200 — {elapsed}ms"
-
-            elif response.status_code < 500:
-                icon = "🟠"
-                result = f"HTTP {response.status_code} — {elapsed}ms"
-
-            else:
-                icon = "🔴"
-                result = f"HTTP {response.status_code} — {elapsed}ms"
-
-        except requests.exceptions.Timeout:
-            icon = "🔴"
-            result = "timeout"
-
-        except requests.exceptions.SSLError:
-            icon = "🔴"
-            result = "ssl error"
-
-        except requests.exceptions.ConnectionError:
-            icon = "🔴"
-            result = "dns/connection error"
-
-        except Exception:
-            icon = "🔴"
-            result = "unknown error"
-
+    for url, icon, result in results:
         ssl_days = check_ssl_expiry(url) if icon in ("🟢", "🟠") else None
 
         if ssl_days is None:
