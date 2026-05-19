@@ -57,6 +57,64 @@ def init_db():
             """)
 
         conn.commit()
+        
+        
+def open_incident(site_id, url, chat_id, status):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO incidents (site_id, url, chat_id, status)
+                VALUES (%s, %s, %s, %s)
+            """, (site_id, url, chat_id, status))
+        conn.commit()
+
+
+def close_incident(site_id):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute("""
+                UPDATE incidents
+                SET
+                    resolved_at = NOW(),
+                    duration_seconds = EXTRACT(EPOCH FROM (NOW() - created_at))::INTEGER,
+                    status = 'RESOLVED'
+                WHERE id = (
+                    SELECT id
+                    FROM incidents
+                    WHERE site_id=%s
+                      AND resolved_at IS NULL
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                )
+                RETURNING duration_seconds
+            """, (site_id,))
+
+            row = c.fetchone()
+
+        conn.commit()
+
+    if not row:
+        return None
+
+    return row["duration_seconds"]
+
+
+def format_duration(seconds):
+    if seconds is None:
+        return "unknown"
+
+    seconds = int(seconds)
+
+    minutes, sec = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+
+    if hours:
+        return f"{hours}h {minutes}m {sec}s"
+
+    if minutes:
+        return f"{minutes}m {sec}s"
+
+    return f"{sec}s"
 
 
 def add_site(url, chat_id):

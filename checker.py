@@ -10,7 +10,9 @@ from db import (
     get_sites,
     update_site_status,
     update_ssl_alert_status,
-    add_incident
+    open_incident,
+    close_incident,
+    format_duration,
 )
 
 
@@ -103,19 +105,26 @@ async def check_sites(bot: Bot):
 
         elif old_status != new_status:
             update_site_status(site_id, new_status)
-            add_incident(site_id, url, chat_id, new_status)
 
             if new_status != "UP":
+                open_incident(site_id, url, chat_id, new_status)
+
                 message = await bot.send_message(
                     chat_id,
                     f"🔴 Проблема с сайтом:\n\n"
                     f"🌐 {url}\n"
                     f"⚠️ {new_status}"
                 )
+
             else:
+                duration_seconds = close_incident(site_id)
+                duration = format_duration(duration_seconds)
+
                 message = await bot.send_message(
                     chat_id,
-                    f"🟢 Сайт снова работает: {url}"
+                    f"🟢 Сайт снова работает:\n\n"
+                    f"🌐 {url}\n"
+                    f"⏱ Downtime: {duration}"
                 )
 
             asyncio.create_task(auto_delete(message, delay=60))
