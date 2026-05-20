@@ -156,6 +156,15 @@ def retro_menu():
 
     return builder.as_markup()
 
+def after_track_menu():
+    builder = InlineKeyboardBuilder()
+
+    builder.button(text="🧹 Очистить чат", callback_data="menu_cleanup")
+    builder.button(text="⬅️ Меню", callback_data="menu_back")
+
+    builder.adjust(2)
+    return builder.as_markup()
+
 
 # --------- COMMANDS ---------
 
@@ -604,7 +613,8 @@ async def retro_track(callback: types.CallbackQuery):
 
     await callback.message.answer_document(
         FSInputFile(path),
-        caption=f"🎵 {title}\n\n🎧 Retro Monitoring Mode"
+        caption=f"{title}\n\n🎧 Retro Monitoring Mode",
+        reply_markup=after_track_menu()
     )
 
 
