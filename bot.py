@@ -267,8 +267,17 @@ async def incidents(msg: types.Message):
     text = "📉 Последние инциденты:\n\n"
 
     for url, status, created_at in rows:
-        icon = "🟢" if status == "UP" else "🔴"
-        text += f"{icon} {short_url(url)} — {status}\n"
+        if status == "RESOLVED":
+            icon = "🟢"
+            status_text = "восстановлен"
+        elif status == "UP":
+            icon = "🟢"
+            status_text = "UP"
+        else:
+            icon = "🔴"
+            status_text = status
+
+        text += f"{icon} {short_url(url)} — {status_text}\n"
         text += f"🕒 {created_at}\n\n"
 
     await msg.answer(text)
@@ -388,22 +397,33 @@ async def menu_incidents(callback: types.CallbackQuery):
     rows = get_user_incidents(callback.message.chat.id)
 
     if not rows:
-        await callback.message.edit_text(
+        await safe_edit(
+            callback.message,
             "📭 Инцидентов пока нет.",
-            reply_markup=main_menu(),
+            reply_markup=main_menu()
         )
         return
 
     text = "📉 Последние инциденты:\n\n"
 
     for url, status, created_at in rows:
-        icon = "🟢" if status == "UP" else "🔴"
-        text += f"{icon} {short_url(url)} — {status}\n"
+        if status == "RESOLVED":
+            icon = "🟢"
+            status_text = "восстановлен"
+        elif status == "UP":
+            icon = "🟢"
+            status_text = "UP"
+        else:
+            icon = "🔴"
+            status_text = status
+
+        text += f"{icon} {short_url(url)} — {status_text}\n"
         text += f"🕒 {created_at}\n\n"
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback.message,
         text,
-        reply_markup=main_menu(),
+        reply_markup=main_menu()
     )
 
 
