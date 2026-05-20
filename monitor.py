@@ -70,7 +70,7 @@ async def check_site(session: aiohttp.ClientSession, url: str) -> CheckResult:
 
         async with session.get(
             full_url,
-            timeout=aiohttp.ClientTimeout(total=5),
+            timeout=aiohttp.ClientTimeout(total=10),
             allow_redirects=True,
             headers={"User-Agent": "Mozilla/5.0"}
         ) as response:
@@ -79,8 +79,11 @@ async def check_site(session: aiohttp.ClientSession, url: str) -> CheckResult:
 
             if code < 400:
                 status = "UP"
-                icon = "🟢"
-                result = f"HTTP {code} — {elapsed}ms"
+
+                if elapsed > 3000:
+                    icon = "🟡"
+                else:
+                    icon = "🟢"
 
             elif code < 500:
                 status = f"HTTP {code}"
