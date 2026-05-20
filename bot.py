@@ -141,13 +141,19 @@ def build_check_text(results):
 def retro_menu():
     builder = InlineKeyboardBuilder()
 
-    builder.button(text="🎮 Doom vibes", callback_data="retro:doom")
-    builder.button(text="💾 Windows 95 mood", callback_data="retro:win95")
-    builder.button(text="🕹 8-bit terminal", callback_data="retro:terminal")
-    builder.button(text="📟 After midnightl", callback_data="retro:after-midnight")
-    builder.button(text="⬅️ Меню", callback_data="menu_back")
+    for key, (_, title) in tracks.items():
+        builder.button(
+            text=title,
+            callback_data=f"retro:{key}"
+        )
+
+    builder.button(
+        text="⬅️ Меню",
+        callback_data="menu_back"
+    )
 
     builder.adjust(1)
+
     return builder.as_markup()
 
 
@@ -529,18 +535,65 @@ async def retro_track(callback: types.CallbackQuery):
     track = callback.data.split(":")[1]
 
     tracks = {
-        "beatles_yesterday": ("music/Beatles • Yesterday.mid", "Beatles • Yesterday"),
-        "toto_africa": ("music/Toto • Africa.mid", "Toto • Africa"),
-        "queen_bohemian": ("music/Queen • Bohemian rhapsody.mid", "Queen • Bohemian Rhapsody"),
-        "rick_astley": ("music/Rick Astley • Never Gonna Give You Up.mid", "Rick Astley • Never Gonna Give You Up"),
-        "under_the_sea": ("music/Under The Sea • Little Mermaid.mid", "Under The Sea • Little Mermaid"),
-        "pirates": ("music/Pirates of the Caribbean • He's a Pirate.mid", "Pirates of the Caribbean • He's a Pirate"),
-        "jd_souther": ("music/J.D. Souther • You're Only Lonely.mid", "J.D. Souther • You're Only Lonely"),
-        "pink_there_you_go": ("music/Pink • There You Go.mid", "Pink • There You Go"),
-        "beverly_hills": ("music/Beverly Hills Cop • Axel F.mid", "Beverly Hills Cop • Axel F"),
-        "eminem_mockingbird": ("music/Eminem • Welcome 2 Detroit.mid", "Eminem • Welcome 2 Detroit"),
-        "john_denver": ("music/John Denver • Country_roads.mid", "John Denver • Country Roads"),
-        "the_clash": ("music/The Clash • Should I Stay or Should I Go.mid", "The Clash • Should I Stay or Should I Go"),
+        "beatles": (
+            "music/Beatles_Yesterday.mid",
+            "🎵 Beatles • Yesterday"
+        ),
+
+        "beverly": (
+            "music/Beverly_Hills_Cop_Axel_F.mid",
+            "🎵 Beverly Hills Cop • Axel F"
+        ),
+
+        "eminem": (
+            "music/Eminem_Welcome_2_Detroit.mid",
+            "🎵 Eminem • Welcome 2 Detroit"
+        ),
+
+        "jd": (
+            "music/J.D._Souther_You_re_Only_Lonely.mid",
+            "🎵 J.D. Souther • You're Only Lonely"
+        ),
+
+        "country": (
+            "music/John_Denver_Country_roads.mid",
+            "🎵 John Denver • Country Roads"
+        ),
+
+        "pink": (
+            "music/Pink_The_You_Go.mid",
+            "🎵 Pink • There You Go"
+        ),
+
+        "pirates": (
+            "music/Pirates_of_the_Caribbean_He_s_a_Pirate.mid",
+            "🎵 Pirates of the Caribbean • He's a Pirate"
+        ),
+
+        "queen": (
+            "music/Queen_Bohemian_Rhapsody.mid",
+            "🎵 Queen • Bohemian Rhapsody"
+        ),
+
+        "rick": (
+            "music/Rick_Astley_Never_Gonna_Give_You_Up.mid",
+            "🎵 Rick Astley • Never Gonna Give You Up"
+        ),
+
+        "clash": (
+            "music/The_Clash_Should_I_Stay_or_Should_I_Go.mid",
+            "🎵 The Clash • Should I Stay or Should I Go"
+        ),
+
+        "toto": (
+            "music/Toto_Africa.mid",
+            "🎵 Toto • Africa"
+        ),
+
+        "mermaid": (
+            "music/Under_The_Sea_Little_Mermaid.mid",
+            "🎵 Under The Sea • Little Mermaid"
+        ),
     }
 
     if track not in tracks:
