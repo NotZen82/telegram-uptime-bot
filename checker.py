@@ -6,9 +6,12 @@ from datetime import datetime, timezone
 import requests
 from aiogram import Bot
 
+from config import FAILURE_THRESHOLD
 from db import (
     get_sites,
     update_site_status,
+    update_failure_count,
+    reset_failure_count,
     update_ssl_alert_status,
     open_incident,
     close_incident,
@@ -94,40 +97,57 @@ def check_ssl_expiry(domain):
         return None
 
 
+async def send_auto_delete(bot, chat_id, text):
+    message = await bot.send_message(chat_id, text)
+    asyncio.create_task(auto_delete(message, delay=60))
+
+
 async def check_sites(bot: Bot):
     sites = get_sites()
 
-    for site_id, url, chat_id, old_status, ssl_alert_sent in sites:
+    for site_id, url, chat_id, old_status, ssl_alert_sent, failure_count in sites:
         new_status = check_url(url)
 
-        if old_status == "UNKNOWN":
-            update_site_status(site_id, new_status)
+        if new_status == "UP":
+            reset_failure_count(site_id)
 
-        elif old_status != new_status:
-            update_site_status(site_id, new_status)
+            if old_status == "UNKNOWN":
+                update_site_status(site_id, new_status)
 
-            if new_status != "UP":
-                open_incident(site_id, url, chat_id, new_status)
+            elif old_status != "UP":
+                update_site_status(site_id, new_status)
 
-                message = await bot.send_message(
-                    chat_id,
-                    f"🔴 Проблема с сайтом:\n\n"
-                    f"🌐 {url}\n"
-                    f"⚠️ {new_status}"
-                )
-
-            else:
                 duration_seconds = close_incident(site_id)
                 duration = format_duration(duration_seconds)
 
-                message = await bot.send_message(
+                await send_auto_delete(
+                    bot,
                     chat_id,
                     f"🟢 Сайт снова работает:\n\n"
                     f"🌐 {url}\n"
                     f"⏱ Downtime: {duration}"
                 )
 
-            asyncio.create_task(auto_delete(message, delay=60))
+        else:
+            failure_count = (failure_count or 0) + 1
+            update_failure_count(site_id, failure_count)
+
+            if old_status not in ("UP", "UNKNOWN"):
+                if old_status != new_status:
+                    update_site_status(site_id, new_status)
+
+            elif failure_count >= FAILURE_THRESHOLD:
+                update_site_status(site_id, new_status)
+                open_incident(site_id, url, chat_id, new_status)
+
+                await send_auto_delete(
+                    bot,
+                    chat_id,
+                    f"🔴 Проблема с сайтом:\n\n"
+                    f"🌐 {url}\n"
+                    f"⚠️ {new_status}\n"
+                    f"Проверок подряд с ошибкой: {failure_count}"
+                )
 
         ssl_days = check_ssl_expiry(url)
 
@@ -135,14 +155,14 @@ async def check_sites(bot: Bot):
             continue
 
         if ssl_days <= 7 and not ssl_alert_sent:
-            message = await bot.send_message(
+            await send_auto_delete(
+                bot,
                 chat_id,
                 f"⚠️ SSL сертификат скоро истекает:\n\n"
                 f"🌐 {url}\n"
                 f"🔐 Осталось дней: {ssl_days}"
             )
 
-            asyncio.create_task(auto_delete(message, delay=60))
             update_ssl_alert_status(site_id, True)
 
         if ssl_days > 7 and ssl_alert_sent:

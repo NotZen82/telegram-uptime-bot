@@ -26,6 +26,7 @@ def init_db():
                     chat_id BIGINT NOT NULL,
                     status TEXT DEFAULT 'UNKNOWN',
                     ssl_alert_sent BOOLEAN DEFAULT FALSE,
+                    failure_count INTEGER DEFAULT 0,
                     UNIQUE(url, chat_id)
                 )
             """)
@@ -33,6 +34,17 @@ def init_db():
             c.execute("""
                 ALTER TABLE sites
                 ADD COLUMN IF NOT EXISTS ssl_alert_sent BOOLEAN DEFAULT FALSE
+            """)
+
+            c.execute("""
+                ALTER TABLE sites
+                ADD COLUMN IF NOT EXISTS failure_count INTEGER DEFAULT 0
+            """)
+
+            c.execute("""
+                UPDATE sites
+                SET failure_count = 0
+                WHERE failure_count IS NULL
             """)
 
             c.execute("""
@@ -168,7 +180,7 @@ def get_sites():
     with get_conn() as conn:
         with conn.cursor() as c:
             c.execute("""
-                SELECT id, url, chat_id, status, ssl_alert_sent
+                SELECT id, url, chat_id, status, ssl_alert_sent, failure_count
                 FROM sites
                 ORDER BY id
             """)
@@ -181,6 +193,7 @@ def get_sites():
             row["chat_id"],
             row["status"],
             row["ssl_alert_sent"],
+            row["failure_count"],
         )
         for row in rows
     ]
@@ -207,6 +220,20 @@ def update_site_status(site_id, status):
                 (status, site_id)
             )
         conn.commit()
+
+
+def update_failure_count(site_id, failure_count):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "UPDATE sites SET failure_count=%s WHERE id=%s",
+                (failure_count, site_id)
+            )
+        conn.commit()
+
+
+def reset_failure_count(site_id):
+    update_failure_count(site_id, 0)
 
 
 def update_ssl_alert_status(site_id, alert_sent):
