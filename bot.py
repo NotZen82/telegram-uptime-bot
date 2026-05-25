@@ -221,6 +221,16 @@ def after_track_menu():
     return builder.as_markup()
 
 
+def cleanup_confirm_menu():
+    builder = InlineKeyboardBuilder()
+
+    builder.button(text="OK", callback_data="cleanup_confirm")
+    builder.button(text="⬅️ Меню", callback_data="menu_back")
+
+    builder.adjust(2)
+    return builder.as_markup()
+
+
 # --------- COMMANDS ---------
 
 @dp.message(Command("start"))
@@ -593,8 +603,29 @@ async def retro_track(callback: types.CallbackQuery):
 async def menu_cleanup(callback: types.CallbackQuery):
     await safe_answer(callback)
 
+    await safe_edit(
+        callback.message,
+        "⚠️ Сейчас будет очищена вся информация в этом чате.\n\n"
+        "После подтверждения подождите примерно 10 секунд, "
+        "меню запустится автоматически.",
+        reply_markup=cleanup_confirm_menu()
+    )
+
+
+@dp.callback_query(F.data == "cleanup_confirm")
+async def cleanup_confirm(callback: types.CallbackQuery):
+    await safe_answer(callback)
+
     chat_id = callback.message.chat.id
     current_message_id = callback.message.message_id
+
+    await safe_edit(
+        callback.message,
+        "🧹 Очищаю чат...\n\n"
+        "Подождите примерно 10 секунд."
+    )
+
+    await asyncio.sleep(10)
 
     for msg_id in range(current_message_id, current_message_id - 100, -1):
         try:
