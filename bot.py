@@ -621,11 +621,8 @@ async def cleanup_confirm(callback: types.CallbackQuery):
 
     await safe_edit(
         callback.message,
-        "🧹 Очищаю чат...\n\n"
-        "Подождите примерно 10 секунд."
+        "🧹 Очищаю чат..."
     )
-
-    await asyncio.sleep(10)
 
     for msg_id in range(current_message_id, current_message_id - 100, -1):
         try:
