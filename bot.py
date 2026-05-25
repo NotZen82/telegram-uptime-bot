@@ -1,4 +1,6 @@
 import asyncio
+from pathlib import Path
+
 from aiogram.types import FSInputFile
 
 from aiogram import Bot, Dispatcher, types, F
@@ -25,6 +27,59 @@ from monitor import check_many_sites, ssl_text, short_url
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
+BASE_DIR = Path(__file__).resolve().parent
+
+
+TRACKS = {
+    "beatles": (
+        "music/Beatles_Yesterday.mid",
+        "🎵 Beatles • Yesterday"
+    ),
+    "toto": (
+        "music/Toto_Africa.mid",
+        "🎵 Toto • Africa"
+    ),
+    "queen": (
+        "music/Queen_Bohemian_Rhapsody.mid",
+        "🎵 Queen • Bohemian Rhapsody"
+    ),
+    "rick": (
+        "music/Rick_Astley_Never_Gonna_Give_You_Up.mid",
+        "🎵 Rick Astley • Never Gonna Give You Up"
+    ),
+    "mermaid": (
+        "music/Under_The_Sea_Little_Mermaid.mid",
+        "🎵 Under The Sea • Little Mermaid"
+    ),
+    "pirates": (
+        "music/Pirates_of_the_Caribbean_He's_a_Pirate.mid",
+        "🎵 Pirates of the Caribbean • He's a Pirate"
+    ),
+    "jd": (
+        "music/J.D._Souther_You're_Only_Lonely.mid",
+        "🎵 J.D. Souther • You're Only Lonely"
+    ),
+    "pink": (
+        "music/Pink_There_You_Go.mid",
+        "🎵 Pink • There You Go"
+    ),
+    "beverly": (
+        "music/Beverly_Hills_Cop _Axel_F.mid",
+        "🎵 Beverly Hills Cop • Axel F"
+    ),
+    "eminem": (
+        "music/Eminem_Welcome_2_Detroit.mid",
+        "🎵 Eminem • Welcome 2 Detroit"
+    ),
+    "country": (
+        "music/John_Denver_Country_roads.mid",
+        "🎵 John Denver • Country Roads"
+    ),
+    "clash": (
+        "music/The_Clash_Should_I_Stay_or_Should_I_Go.mid",
+        "🎵 The Clash • Should I Stay or Should I Go"
+    ),
+}
 
 
 async def safe_answer(callback: types.CallbackQuery):
@@ -520,57 +575,6 @@ async def retro_track(callback: types.CallbackQuery):
 
     track = callback.data.split(":")[1]
 
-    TRACKS = {
-        "beatles": (
-            "music/Beatles_Yesterday.mid",
-            "🎵 Beatles • Yesterday"
-        ),
-        "toto": (
-            "music/Toto_Africa.mid",
-            "🎵 Toto • Africa"
-        ),
-        "queen": (
-            "music/Queen_Bohemian_Rhapsody.mid",
-            "🎵 Queen • Bohemian Rhapsody"
-        ),
-        "rick": (
-            "music/Rick_Astley_Never_Gonna_Give_You_Up.mid",
-            "🎵 Rick Astley • Never Gonna Give You Up"
-        ),
-        "mermaid": (
-            "music/Under_The_Sea_Little_Mermaid.mid",
-            "🎵 Under The Sea • Little Mermaid"
-        ),
-        "pirates": (
-            "music/Pirates_of_the_Caribbean_He_s_a_Pirate.mid",
-            "🎵 Pirates of the Caribbean • He's a Pirate"
-        ),
-        "jd": (
-            "music/J.D._Souther_You_re_Only_Lonely.mid",
-            "🎵 J.D. Souther • You're Only Lonely"
-        ),
-        "pink": (
-            "music/Pink_The_You_Go.mid",
-            "🎵 Pink • There You Go"
-        ),
-        "beverly": (
-            "music/Beverly_Hills_Cop_Axel_F.mid",
-            "🎵 Beverly Hills Cop • Axel F"
-        ),
-        "eminem": (
-            "music/Eminem_Welcome_2_Detroit.mid",
-            "🎵 Eminem • Welcome 2 Detroit"
-        ),
-        "country": (
-            "music/John_Denver_Country_roads.mid",
-            "🎵 John Denver • Country Roads"
-        ),
-        "clash": (
-            "music/The_Clash_Should_I_Stay_or_Should_I_Go.mid",
-            "🎵 The Clash • Should I Stay or Should I Go"
-        ),
-    }
-
     if track not in TRACKS:
         await callback.message.answer("Трек не найден.")
         return
@@ -578,7 +582,7 @@ async def retro_track(callback: types.CallbackQuery):
     path, title = TRACKS[track]
 
     await callback.message.answer_document(
-        FSInputFile(path),
+        FSInputFile(BASE_DIR / path),
         caption=f"{title}\n\n🎧 Retro Monitoring Mode",
         reply_markup=after_track_menu()
     )
