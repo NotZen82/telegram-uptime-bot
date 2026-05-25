@@ -141,7 +141,7 @@ def build_check_text(results):
 def retro_menu():
     builder = InlineKeyboardBuilder()
 
-    for key, (_, title) in tracks.items():
+    for key, (_, title) in TRACKS.items():
         builder.button(
             text=title,
             callback_data=f"retro:{key}"
@@ -489,29 +489,6 @@ async def callback_check(callback: types.CallbackQuery):
         reply_markup=refresh_menu(),
     )
 
-def retro_menu():
-    builder = InlineKeyboardBuilder()
-
-    tracks = {
-        "beatles_yesterday": "Beatles • Yesterday",
-        "toto_africa": "Toto • Africa",
-        "queen_bohemian": "Queen • Bohemian Rhapsody",
-        "rick_astley": "Rick Astley • Never Gonna Give You Up",
-        "under_the_sea": "Under The Sea • Little Mermaid",
-        "pirates": "Pirates of the Caribbean • He's a Pirate",
-        "jd_souther": "J.D. Souther • You're Only Lonely",
-        "pink_there_you_go": "Pink • There You Go",
-        "beverly_hills": "Beverly Hills Cop • Axel F",
-        "eminem_mockingbird": "Eminem • Mockingbird",
-        "john_denver": "John Denver • Country Roads",
-        "the_clash": "The Clash • Should I Stay or Should I Go",
-    }
-
-    for key, title in tracks.items():
-        builder.button(
-            text=f"🎵 {title}",
-            callback_data=f"retro:{key}"
-        )
 
     builder.button(text="⬅️ Меню", callback_data="menu_back")
     builder.adjust(1)
@@ -543,73 +520,62 @@ async def retro_track(callback: types.CallbackQuery):
 
     track = callback.data.split(":")[1]
 
-    tracks = {
+    TRACKS = {
         "beatles": (
             "music/Beatles_Yesterday.mid",
             "🎵 Beatles • Yesterday"
         ),
-
-        "beverly": (
-            "music/Beverly_Hills_Cop_Axel_F.mid",
-            "🎵 Beverly Hills Cop • Axel F"
-        ),
-
-        "eminem": (
-            "music/Eminem_Welcome_2_Detroit.mid",
-            "🎵 Eminem • Welcome 2 Detroit"
-        ),
-
-        "jd": (
-            "music/J.D._Souther_You_re_Only_Lonely.mid",
-            "🎵 J.D. Souther • You're Only Lonely"
-        ),
-
-        "country": (
-            "music/John_Denver_Country_roads.mid",
-            "🎵 John Denver • Country Roads"
-        ),
-
-        "pink": (
-            "music/Pink_The_You_Go.mid",
-            "🎵 Pink • There You Go"
-        ),
-
-        "pirates": (
-            "music/Pirates_of_the_Caribbean_He_s_a_Pirate.mid",
-            "🎵 Pirates of the Caribbean • He's a Pirate"
-        ),
-
-        "queen": (
-            "music/Queen_Bohemian_Rhapsody.mid",
-            "🎵 Queen • Bohemian Rhapsody"
-        ),
-
-        "rick": (
-            "music/Rick_Astley_Never_Gonna_Give_You_Up.mid",
-            "🎵 Rick Astley • Never Gonna Give You Up"
-        ),
-
-        "clash": (
-            "music/The_Clash_Should_I_Stay_or_Should_I_Go.mid",
-            "🎵 The Clash • Should I Stay or Should I Go"
-        ),
-
         "toto": (
             "music/Toto_Africa.mid",
             "🎵 Toto • Africa"
         ),
-
+        "queen": (
+            "music/Queen_Bohemian_Rhapsody.mid",
+            "🎵 Queen • Bohemian Rhapsody"
+        ),
+        "rick": (
+            "music/Rick_Astley_Never_Gonna_Give_You_Up.mid",
+            "🎵 Rick Astley • Never Gonna Give You Up"
+        ),
         "mermaid": (
             "music/Under_The_Sea_Little_Mermaid.mid",
             "🎵 Under The Sea • Little Mermaid"
         ),
+        "pirates": (
+            "music/Pirates_of_the_Caribbean_He_s_a_Pirate.mid",
+            "🎵 Pirates of the Caribbean • He's a Pirate"
+        ),
+        "jd": (
+            "music/J.D._Souther_You_re_Only_Lonely.mid",
+            "🎵 J.D. Souther • You're Only Lonely"
+        ),
+        "pink": (
+            "music/Pink_The_You_Go.mid",
+            "🎵 Pink • There You Go"
+        ),
+        "beverly": (
+            "music/Beverly_Hills_Cop_Axel_F.mid",
+            "🎵 Beverly Hills Cop • Axel F"
+        ),
+        "eminem": (
+            "music/Eminem_Welcome_2_Detroit.mid",
+            "🎵 Eminem • Welcome 2 Detroit"
+        ),
+        "country": (
+            "music/John_Denver_Country_roads.mid",
+            "🎵 John Denver • Country Roads"
+        ),
+        "clash": (
+            "music/The_Clash_Should_I_Stay_or_Should_I_Go.mid",
+            "🎵 The Clash • Should I Stay or Should I Go"
+        ),
     }
 
-    if track not in tracks:
+    if track not in TRACKS:
         await callback.message.answer("Трек не найден.")
         return
 
-    path, title = tracks[track]
+    path, title = TRACKS[track]
 
     await callback.message.answer_document(
         FSInputFile(path),
