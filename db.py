@@ -176,6 +176,38 @@ def get_user_sites(chat_id):
     return [(row["url"], row["status"]) for row in rows]
 
 
+def get_user_site_by_number(chat_id, number):
+    if number < 1:
+        return None
+
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT id, url, chat_id, status, ssl_alert_sent, failure_count
+                FROM sites
+                WHERE chat_id=%s
+                ORDER BY id
+                OFFSET %s
+                LIMIT 1
+            """, (chat_id, number - 1))
+            row = c.fetchone()
+
+    return row
+
+
+def get_user_site_detail(chat_id, url):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT id, url, chat_id, status, ssl_alert_sent, failure_count
+                FROM sites
+                WHERE chat_id=%s AND url=%s
+            """, (chat_id, url))
+            row = c.fetchone()
+
+    return row
+
+
 def get_sites():
     with get_conn() as conn:
         with conn.cursor() as c:
@@ -272,5 +304,20 @@ def get_user_incidents(chat_id, limit=10):
         (row["url"], row["status"], row["created_at"])
         for row in rows
     ]
+
+
+def get_last_site_incident(chat_id, url):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT status, created_at, resolved_at, duration_seconds
+                FROM incidents
+                WHERE chat_id=%s AND url=%s
+                ORDER BY created_at DESC
+                LIMIT 1
+            """, (chat_id, url))
+            row = c.fetchone()
+
+    return row
 
 

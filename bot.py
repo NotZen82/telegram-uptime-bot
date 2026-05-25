@@ -9,16 +9,20 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from config import BOT_TOKEN, CHECK_INTERVAL
+from config import BOT_TOKEN, CHECK_INTERVAL, FAILURE_THRESHOLD
 
 from db import (
     init_db,
     add_site,
     delete_site,
     get_user_sites,
+    get_user_site_by_number,
+    get_user_site_detail,
     site_exists,
     delete_site_by_number,
     get_user_incidents,
+    get_last_site_incident,
+    format_duration,
 )
 
 from checker import check_sites
@@ -143,6 +147,10 @@ def sites_menu(sites):
 
     for i, _ in enumerate(sites, start=1):
         builder.button(
+            text=f"ℹ️ Подробнее {i}",
+            callback_data=f"site_detail:{i}",
+        )
+        builder.button(
             text=f"🗑 Удалить {i}",
             callback_data=f"delete_site:{i}",
         )
@@ -200,6 +208,56 @@ def build_check_text(results):
         text += "\n"
 
     return text
+
+
+def site_card_menu(number):
+    builder = InlineKeyboardBuilder()
+
+    builder.button(text="🔄 Проверить", callback_data=f"site_detail:{number}")
+    builder.button(text="🗑 Удалить", callback_data=f"delete_site:{number}")
+    builder.button(text="📋 Список", callback_data="menu_list")
+    builder.button(text="⬅️ Меню", callback_data="menu_back")
+
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def format_incident_text(incident):
+    if not incident:
+        return "нет"
+
+    status = incident["status"]
+    created_at = incident["created_at"]
+
+    if status == "RESOLVED":
+        duration = format_duration(incident["duration_seconds"])
+        return f"восстановлен, {created_at}, downtime {duration}"
+
+    return f"{status}, {created_at}"
+
+
+async def build_site_card(site, number=None):
+    url = site["url"]
+    status = site["status"]
+    failure_count = site["failure_count"] or 0
+    incident = get_last_site_incident(site["chat_id"], url)
+    result = (await check_many_sites([url]))[0]
+
+    ssl_info = ssl_text(result.ssl_days) or "нет данных"
+    status_icon = render_status_icon(status)
+
+    title = f"🌐 {short_url(url)}"
+    if number:
+        title = f"{number}. {title}"
+
+    return (
+        f"{title}\n\n"
+        f"Статус в базе: {status_icon} {status}\n"
+        f"Проверка сейчас: {result.icon} {result.result}\n"
+        f"SSL: {ssl_info}\n"
+        f"Ошибок подряд: {failure_count}/{FAILURE_THRESHOLD}\n"
+        f"Последний инцидент: {format_incident_text(incident)}"
+    )
 
 
 def retro_menu():
@@ -318,6 +376,48 @@ async def list_sites(msg: types.Message):
     await msg.answer(text)
 
 
+@dp.message(Command("site"))
+async def site_card(msg: types.Message):
+    sites = get_user_sites(msg.chat.id)
+
+    if not sites:
+        await msg.answer("📭 У тебя пока нет сайтов для мониторинга.")
+        return
+
+    try:
+        value = msg.text.split(" ", 1)[1].strip().lower()
+    except Exception:
+        text = "🌐 Выбери сайт:\n\n"
+
+        for i, (url, status) in enumerate(sites, start=1):
+            icon = render_status_icon(status)
+            text += f"{i}. {icon} {short_url(url)} — {status}\n"
+
+        await msg.answer(
+            text,
+            reply_markup=sites_menu(sites),
+        )
+        return
+
+    if value.isdigit():
+        number = int(value)
+        site = get_user_site_by_number(msg.chat.id, number)
+    else:
+        number = None
+        site = get_user_site_detail(msg.chat.id, value)
+
+    if not site:
+        await msg.answer("⚠️ Сайт не найден. Проверь /list")
+        return
+
+    text = await build_site_card(site, number=number)
+
+    await msg.answer(
+        text,
+        reply_markup=site_card_menu(number) if number else main_menu(),
+    )
+
+
 @dp.message(Command("status"))
 async def status_summary(msg: types.Message):
     sites = get_user_sites(msg.chat.id)
@@ -418,6 +518,8 @@ async def menu_faq(callback: types.CallbackQuery):
         "/add google.com\n\n"
         "📋 Список сайтов\n"
         "/list\n\n"
+        "🌐 Карточка сайта\n"
+        "/site 1\n\n"
         "🗑 Удалить сайт\n"
         "/remove 1\n\n"
         "🟢 UP — работает\n"
@@ -541,6 +643,30 @@ async def delete_site_callback(callback: types.CallbackQuery):
     )
 
 
+@dp.callback_query(F.data.startswith("site_detail:"))
+async def site_detail_callback(callback: types.CallbackQuery):
+    await safe_answer(callback)
+
+    number = int(callback.data.split(":")[1])
+    site = get_user_site_by_number(callback.message.chat.id, number)
+
+    if not site:
+        await safe_edit(
+            callback.message,
+            "⚠️ Сайт не найден. Обнови список.",
+            reply_markup=main_menu(),
+        )
+        return
+
+    text = await build_site_card(site, number=number)
+
+    await safe_edit(
+        callback.message,
+        text,
+        reply_markup=site_card_menu(number),
+    )
+
+
 @dp.callback_query(F.data == "menu_check")
 async def callback_check(callback: types.CallbackQuery):
     await safe_answer(callback)
@@ -563,12 +689,6 @@ async def callback_check(callback: types.CallbackQuery):
         build_check_text(results),
         reply_markup=refresh_menu(),
     )
-
-
-    builder.button(text="⬅️ Меню", callback_data="menu_back")
-    builder.adjust(1)
-
-    return builder.as_markup()
 
 
 @dp.callback_query(F.data == "menu_retro")
