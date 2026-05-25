@@ -85,6 +85,8 @@ async def check_site(session: aiohttp.ClientSession, url: str) -> CheckResult:
                 else:
                     icon = "🟢"
 
+                result = f"HTTP {code} — {elapsed}ms"
+
             elif code < 500:
                 status = f"HTTP {code}"
                 icon = "🟠"
