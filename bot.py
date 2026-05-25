@@ -99,7 +99,16 @@ async def safe_edit(message, text, reply_markup=None):
         if "message is not modified" in str(e):
             return
 
-        raise e
+        try:
+            await message.edit_caption(
+                caption=text,
+                reply_markup=reply_markup
+            )
+        except Exception as caption_error:
+            if "message is not modified" in str(caption_error):
+                return
+
+            raise e
 
 
 def main_menu():
@@ -381,7 +390,8 @@ async def retro(msg: types.Message):
 async def menu_back(callback: types.CallbackQuery):
     await safe_answer(callback)
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback.message,
         "📡 Главное меню:",
         reply_markup=main_menu(),
     )
@@ -606,8 +616,8 @@ async def menu_cleanup(callback: types.CallbackQuery):
     await safe_edit(
         callback.message,
         "⚠️ Сейчас будет очищена вся информация в этом чате.\n\n"
-        "После подтверждения подождите примерно 10 секунд, "
-        "меню запустится автоматически.",
+        "Нажмите OK, чтобы начать очистку. "
+        "После очистки меню запустится автоматически.",
         reply_markup=cleanup_confirm_menu()
     )
 
