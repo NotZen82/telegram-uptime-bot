@@ -1,7 +1,7 @@
 import os
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-FEEDBACK_CHAT_ID = os.getenv("FEEDBACK_CHAT_ID")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+FEEDBACK_CHAT_ID = os.getenv("FEEDBACK_CHAT_ID", "").strip()
 
 if FEEDBACK_CHAT_ID and FEEDBACK_CHAT_ID.lstrip("-").isdigit():
     FEEDBACK_CHAT_ID = int(FEEDBACK_CHAT_ID)

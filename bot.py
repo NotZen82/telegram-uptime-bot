@@ -8,6 +8,7 @@ from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from aiogram.exceptions import TelegramUnauthorizedError
 
 from config import BOT_TOKEN, CHECK_INTERVAL, FAILURE_THRESHOLD, FEEDBACK_CHAT_ID
 
@@ -33,6 +34,14 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 BASE_DIR = Path(__file__).resolve().parent
 WAITING_FEEDBACK_USERS = set()
+
+
+def masked_bot_token():
+    if not BOT_TOKEN:
+        return "empty"
+
+    bot_id = BOT_TOKEN.split(":", 1)[0]
+    return f"{bot_id}:***{BOT_TOKEN[-4:]}"
 
 
 TRACKS = {
@@ -916,6 +925,21 @@ async def scheduler_task():
 
 async def main():
     init_db()
+
+    try:
+        me = await bot.get_me()
+        print(
+            f"Telegram bot authorized: @{me.username} "
+            f"(id={me.id}, token={masked_bot_token()})",
+            flush=True,
+        )
+    except TelegramUnauthorizedError:
+        print(
+            "Telegram bot authorization failed. "
+            f"Check Railway BOT_TOKEN. Runtime token={masked_bot_token()}",
+            flush=True,
+        )
+        raise
 
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
