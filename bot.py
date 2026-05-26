@@ -9,7 +9,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from config import BOT_TOKEN, CHECK_INTERVAL, FAILURE_THRESHOLD
+from config import BOT_TOKEN, CHECK_INTERVAL, FAILURE_THRESHOLD, FEEDBACK_CHAT_ID
 
 from db import (
     init_db,
@@ -32,6 +32,7 @@ from monitor import check_many_sites, ssl_text, short_url
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 BASE_DIR = Path(__file__).resolve().parent
+WAITING_FEEDBACK_USERS = set()
 
 
 TRACKS = {
@@ -124,6 +125,7 @@ def main_menu():
     builder.button(text="📉 Инциденты", callback_data="menu_incidents")
     builder.button(text="➕ Как добавить сайт", callback_data="menu_add_help")
     builder.button(text="❓ FAQ", callback_data="menu_faq")
+    builder.button(text="💬 Обратная связь", callback_data="menu_feedback")
     builder.button(text="🎧 Retro mode", callback_data="menu_retro")
     builder.button(text="🧹 Очистить чат", callback_data="menu_cleanup")
 
@@ -296,6 +298,72 @@ def cleanup_confirm_menu():
 
     builder.adjust(2)
     return builder.as_markup()
+
+
+def feedback_menu():
+    builder = InlineKeyboardBuilder()
+
+    builder.button(text="Отмена", callback_data="feedback_cancel")
+    builder.button(text="⬅️ Меню", callback_data="menu_back")
+
+    builder.adjust(2)
+    return builder.as_markup()
+
+
+def feedback_prompt_text():
+    return (
+        "💬 Обратная связь\n\n"
+        "Напиши, что сломалось, чего не хватает "
+        "или что хочется улучшить.\n\n"
+        "Следующее сообщение я отправлю разработчику."
+    )
+
+
+async def ask_feedback(message):
+    if not FEEDBACK_CHAT_ID:
+        await message.answer(
+            "⚠️ Обратная связь пока не настроена."
+        )
+        return
+
+    WAITING_FEEDBACK_USERS.add(message.chat.id)
+
+    await message.answer(
+        feedback_prompt_text(),
+        reply_markup=feedback_menu()
+    )
+
+
+async def send_feedback_to_admin(msg: types.Message):
+    user = msg.from_user
+    username = f"@{user.username}" if user and user.username else "нет"
+    full_name = user.full_name if user else "неизвестно"
+    source_title = msg.chat.title or "Личный чат с ботом"
+    source_username = f"@{msg.chat.username}" if msg.chat.username else "нет"
+    text = msg.text or msg.caption or "Без текста. Сообщение переслано ниже."
+
+    if len(text) > 3000:
+        text = f"{text[:3000]}\n\n...сообщение обрезано"
+
+    await bot.send_message(
+        FEEDBACK_CHAT_ID,
+        "💬 Новая обратная связь\n\n"
+        f"Имя: {full_name}\n"
+        f"Username: {username}\n"
+        f"User ID: {msg.from_user.id if msg.from_user else msg.chat.id}\n"
+        f"Источник: {source_title}\n"
+        f"Источник username: {source_username}\n"
+        f"Тип чата: {msg.chat.type}\n"
+        f"Chat ID источника: {msg.chat.id}\n\n"
+        f"Сообщение:\n{text}"
+    )
+
+    if not msg.text:
+        await bot.forward_message(
+            FEEDBACK_CHAT_ID,
+            msg.chat.id,
+            msg.message_id
+        )
 
 
 # --------- COMMANDS ---------
@@ -472,6 +540,16 @@ async def incidents(msg: types.Message):
     await msg.answer(text)
 
 
+@dp.message(Command("feedback"))
+async def feedback(msg: types.Message):
+    await ask_feedback(msg)
+
+
+@dp.message(Command("myid"))
+async def myid(msg: types.Message):
+    await msg.answer(f"Твой chat_id: {msg.chat.id}")
+
+
 @dp.message(Command("retro"))
 async def retro(msg: types.Message):
     await msg.answer(
@@ -484,11 +562,39 @@ async def retro(msg: types.Message):
     )
 
 
+@dp.message(lambda msg: msg.chat.id in WAITING_FEEDBACK_USERS)
+async def receive_feedback(msg: types.Message):
+    if msg.text and msg.text.startswith("/"):
+        WAITING_FEEDBACK_USERS.discard(msg.chat.id)
+        await msg.answer(
+            "Ок, обратную связь отменил.",
+            reply_markup=main_menu()
+        )
+        return
+
+    try:
+        await send_feedback_to_admin(msg)
+    except Exception:
+        await msg.answer(
+            "⚠️ Не получилось отправить сообщение. Попробуй позже.",
+            reply_markup=main_menu()
+        )
+        return
+
+    WAITING_FEEDBACK_USERS.discard(msg.chat.id)
+
+    await msg.answer(
+        "Спасибо! Сообщение отправлено разработчику.",
+        reply_markup=main_menu()
+    )
+
+
 # --------- CALLBACKS ---------
 
 @dp.callback_query(F.data == "menu_back")
 async def menu_back(callback: types.CallbackQuery):
     await safe_answer(callback)
+    WAITING_FEEDBACK_USERS.discard(callback.message.chat.id)
 
     await safe_edit(
         callback.message,
@@ -520,6 +626,8 @@ async def menu_faq(callback: types.CallbackQuery):
         "/list\n\n"
         "🌐 Карточка сайта\n"
         "/site 1\n\n"
+        "💬 Обратная связь\n"
+        "/feedback\n\n"
         "🗑 Удалить сайт\n"
         "/remove 1\n\n"
         "🟢 UP — работает\n"
@@ -534,6 +642,39 @@ async def menu_faq(callback: types.CallbackQuery):
         callback.message,
         text,
         reply_markup=main_menu()
+    )
+
+
+@dp.callback_query(F.data == "menu_feedback")
+async def menu_feedback(callback: types.CallbackQuery):
+    await safe_answer(callback)
+
+    if not FEEDBACK_CHAT_ID:
+        await safe_edit(
+            callback.message,
+            "⚠️ Обратная связь пока не настроена.",
+            reply_markup=main_menu()
+        )
+        return
+
+    WAITING_FEEDBACK_USERS.add(callback.message.chat.id)
+
+    await safe_edit(
+        callback.message,
+        feedback_prompt_text(),
+        reply_markup=feedback_menu()
+    )
+
+
+@dp.callback_query(F.data == "feedback_cancel")
+async def feedback_cancel(callback: types.CallbackQuery):
+    await safe_answer(callback)
+    WAITING_FEEDBACK_USERS.discard(callback.message.chat.id)
+
+    await safe_edit(
+        callback.message,
+        "📡 Главное меню:",
+        reply_markup=main_menu(),
     )
 
 
