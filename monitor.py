@@ -133,20 +133,28 @@ async def check_many_sites(urls: list[str]) -> list[CheckResult]:
         return await asyncio.gather(*tasks)
 
 
-def ssl_text(ssl_days: int | None) -> str:
+def ssl_text(ssl_days: int | None, lang: str = "ru") -> str:
     if ssl_days is None:
         return ""
 
     if ssl_days < 0:
-        return f"🔐 SSL expired {abs(ssl_days)} days ago"
+        if lang == "en":
+            return f"🔐 SSL expired {abs(ssl_days)} days ago"
+        return f"🔐 SSL истек {abs(ssl_days)} дн. назад"
 
     if ssl_days <= 7:
-        return f"🔐 SSL expires in {ssl_days} days ⚠️"
+        if lang == "en":
+            return f"🔐 SSL expires in {ssl_days} days ⚠️"
+        return f"🔐 SSL истекает через {ssl_days} дн. ⚠️"
 
     if ssl_days <= 30:
-        return f"🔐 SSL expires in {ssl_days} days"
+        if lang == "en":
+            return f"🔐 SSL expires in {ssl_days} days"
+        return f"🔐 SSL истекает через {ssl_days} дн."
 
-    return f"🔐 SSL: {ssl_days} days"
+    if lang == "en":
+        return f"🔐 SSL: {ssl_days} days"
+    return f"🔐 SSL: {ssl_days} дн."
 
 
 def short_url(url: str) -> str:

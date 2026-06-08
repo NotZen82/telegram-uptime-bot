@@ -20,6 +20,13 @@ def init_db():
     with get_conn() as conn:
         with conn.cursor() as c:
             c.execute("""
+                CREATE TABLE IF NOT EXISTS chat_settings (
+                    chat_id BIGINT PRIMARY KEY,
+                    language TEXT DEFAULT 'ru'
+                )
+            """)
+
+            c.execute("""
                 CREATE TABLE IF NOT EXISTS sites (
                     id SERIAL PRIMARY KEY,
                     url TEXT NOT NULL,
@@ -27,6 +34,11 @@ def init_db():
                     status TEXT DEFAULT 'UNKNOWN',
                     ssl_alert_sent BOOLEAN DEFAULT FALSE,
                     failure_count INTEGER DEFAULT 0,
+                    display_name TEXT,
+                    failure_threshold INTEGER,
+                    ssl_monitoring_enabled BOOLEAN DEFAULT TRUE,
+                    check_interval_seconds INTEGER,
+                    last_checked_at TIMESTAMP,
                     UNIQUE(url, chat_id)
                 )
             """)
@@ -45,6 +57,37 @@ def init_db():
                 UPDATE sites
                 SET failure_count = 0
                 WHERE failure_count IS NULL
+            """)
+
+            c.execute("""
+                ALTER TABLE sites
+                ADD COLUMN IF NOT EXISTS display_name TEXT
+            """)
+
+            c.execute("""
+                ALTER TABLE sites
+                ADD COLUMN IF NOT EXISTS failure_threshold INTEGER
+            """)
+
+            c.execute("""
+                ALTER TABLE sites
+                ADD COLUMN IF NOT EXISTS ssl_monitoring_enabled BOOLEAN DEFAULT TRUE
+            """)
+
+            c.execute("""
+                UPDATE sites
+                SET ssl_monitoring_enabled = TRUE
+                WHERE ssl_monitoring_enabled IS NULL
+            """)
+
+            c.execute("""
+                ALTER TABLE sites
+                ADD COLUMN IF NOT EXISTS check_interval_seconds INTEGER
+            """)
+
+            c.execute("""
+                ALTER TABLE sites
+                ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMP
             """)
 
             c.execute("""
@@ -166,14 +209,17 @@ def get_user_sites(chat_id):
     with get_conn() as conn:
         with conn.cursor() as c:
             c.execute("""
-                SELECT url, status
+                SELECT url, status, display_name
                 FROM sites
                 WHERE chat_id=%s
                 ORDER BY id
             """, (chat_id,))
             rows = c.fetchall()
 
-    return [(row["url"], row["status"]) for row in rows]
+    return [
+        (row["url"], row["status"], row["display_name"])
+        for row in rows
+    ]
 
 
 def get_user_site_by_number(chat_id, number):
@@ -183,7 +229,18 @@ def get_user_site_by_number(chat_id, number):
     with get_conn() as conn:
         with conn.cursor() as c:
             c.execute("""
-                SELECT id, url, chat_id, status, ssl_alert_sent, failure_count
+                SELECT
+                    id,
+                    url,
+                    chat_id,
+                    status,
+                    ssl_alert_sent,
+                    failure_count,
+                    display_name,
+                    failure_threshold,
+                    ssl_monitoring_enabled,
+                    check_interval_seconds,
+                    last_checked_at
                 FROM sites
                 WHERE chat_id=%s
                 ORDER BY id
@@ -199,7 +256,18 @@ def get_user_site_detail(chat_id, url):
     with get_conn() as conn:
         with conn.cursor() as c:
             c.execute("""
-                SELECT id, url, chat_id, status, ssl_alert_sent, failure_count
+                SELECT
+                    id,
+                    url,
+                    chat_id,
+                    status,
+                    ssl_alert_sent,
+                    failure_count,
+                    display_name,
+                    failure_threshold,
+                    ssl_monitoring_enabled,
+                    check_interval_seconds,
+                    last_checked_at
                 FROM sites
                 WHERE chat_id=%s AND url=%s
             """, (chat_id, url))
@@ -212,23 +280,24 @@ def get_sites():
     with get_conn() as conn:
         with conn.cursor() as c:
             c.execute("""
-                SELECT id, url, chat_id, status, ssl_alert_sent, failure_count
+                SELECT
+                    id,
+                    url,
+                    chat_id,
+                    status,
+                    ssl_alert_sent,
+                    failure_count,
+                    display_name,
+                    failure_threshold,
+                    ssl_monitoring_enabled,
+                    check_interval_seconds,
+                    last_checked_at
                 FROM sites
                 ORDER BY id
             """)
             rows = c.fetchall()
 
-    return [
-        (
-            row["id"],
-            row["url"],
-            row["chat_id"],
-            row["status"],
-            row["ssl_alert_sent"],
-            row["failure_count"],
-        )
-        for row in rows
-    ]
+    return rows
 
 
 def site_exists(url, chat_id):
@@ -254,6 +323,33 @@ def update_site_status(site_id, status):
         conn.commit()
 
 
+def get_chat_language(chat_id):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "SELECT language FROM chat_settings WHERE chat_id=%s",
+                (chat_id,)
+            )
+            row = c.fetchone()
+
+    if not row:
+        return None
+
+    return row["language"]
+
+
+def set_chat_language(chat_id, language):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute("""
+                INSERT INTO chat_settings (chat_id, language)
+                VALUES (%s, %s)
+                ON CONFLICT (chat_id)
+                DO UPDATE SET language=EXCLUDED.language
+            """, (chat_id, language))
+        conn.commit()
+
+
 def update_failure_count(site_id, failure_count):
     with get_conn() as conn:
         with conn.cursor() as c:
@@ -274,6 +370,60 @@ def update_ssl_alert_status(site_id, alert_sent):
             c.execute(
                 "UPDATE sites SET ssl_alert_sent=%s WHERE id=%s",
                 (alert_sent, site_id)
+            )
+        conn.commit()
+
+
+def update_site_checked_at(site_id):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "UPDATE sites SET last_checked_at=NOW() WHERE id=%s",
+                (site_id,)
+            )
+        conn.commit()
+
+
+def update_site_failure_threshold(site_id, threshold):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "UPDATE sites SET failure_threshold=%s WHERE id=%s",
+                (threshold, site_id)
+            )
+        conn.commit()
+
+
+def update_site_ssl_monitoring(site_id, enabled):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                """
+                UPDATE sites
+                SET ssl_monitoring_enabled=%s, ssl_alert_sent=FALSE
+                WHERE id=%s
+                """,
+                (enabled, site_id)
+            )
+        conn.commit()
+
+
+def update_site_check_interval(site_id, interval_seconds):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "UPDATE sites SET check_interval_seconds=%s WHERE id=%s",
+                (interval_seconds, site_id)
+            )
+        conn.commit()
+
+
+def update_site_display_name(site_id, display_name):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "UPDATE sites SET display_name=%s WHERE id=%s",
+                (display_name, site_id)
             )
         conn.commit()
 
