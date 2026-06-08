@@ -1,4 +1,5 @@
 import asyncio
+import re
 import socket
 import ssl
 import time
@@ -85,6 +86,68 @@ def parse_rdap_datetime(value: str) -> datetime:
     return datetime.fromisoformat(value).astimezone(timezone.utc)
 
 
+def parse_whois_datetime(value: str) -> datetime | None:
+    value = value.strip().strip(".")
+    value = re.sub(r"\s*\(.+\)\s*$", "", value)
+    match = re.search(r"\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)?|\d{2}[.-]\d{2}[.-]\d{4}", value)
+    if match:
+        value = match.group(0)
+
+    formats = (
+        "%Y-%m-%dT%H:%M:%S.%fZ",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d",
+        "%d.%m.%Y",
+        "%d-%m-%Y",
+    )
+
+    for fmt in formats:
+        try:
+            return datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+
+    return None
+
+
+def check_kz_domain_expiry(domain: str) -> int | None:
+    try:
+        with socket.create_connection(("whois.nic.kz", 43), timeout=10) as sock:
+            sock.sendall(f"{domain}\r\n".encode("utf-8"))
+            chunks = []
+
+            while True:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+
+        response = b"".join(chunks).decode("utf-8", errors="ignore")
+        patterns = (
+            r"Expiration Date\s*[:.]+\s*(.+)",
+            r"Expires\s*[:.]+\s*(.+)",
+            r"Valid Until\s*[:.]+\s*(.+)",
+            r"Paid Till\s*[:.]+\s*(.+)",
+            r"Registry Expiry Date\s*[:.]+\s*(.+)",
+            r"Registrar Registration Expiration Date\s*[:.]+\s*(.+)",
+        )
+
+        for pattern in patterns:
+            match = re.search(pattern, response, flags=re.IGNORECASE)
+            if not match:
+                continue
+
+            expires_date = parse_whois_datetime(match.group(1).strip())
+            if expires_date:
+                return (expires_date - datetime.now(timezone.utc)).days
+
+    except Exception:
+        return None
+
+    return None
+
+
 async def check_domain_expiry(session: aiohttp.ClientSession, url: str) -> int | None:
     for domain in domain_candidates(url):
         try:
@@ -94,10 +157,7 @@ async def check_domain_expiry(session: aiohttp.ClientSession, url: str) -> int |
                 allow_redirects=True,
                 headers={"User-Agent": "TelegramUptimeBot/1.0"}
             ) as response:
-                if response.status >= 400:
-                    continue
-
-                data = await response.json(content_type=None)
+                data = await response.json(content_type=None) if response.status < 400 else {}
 
             for event in data.get("events", []):
                 action = (event.get("eventAction") or "").lower()
@@ -110,7 +170,12 @@ async def check_domain_expiry(session: aiohttp.ClientSession, url: str) -> int |
                     return (expires_date - datetime.now(timezone.utc)).days
 
         except Exception:
-            continue
+            pass
+
+        if domain.endswith(".kz"):
+            kz_days = await asyncio.to_thread(check_kz_domain_expiry, domain)
+            if kz_days is not None:
+                return kz_days
 
     return None
 

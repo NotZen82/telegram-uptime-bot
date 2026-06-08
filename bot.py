@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date, datetime
 from pathlib import Path
 
 from aiogram.types import FSInputFile
@@ -29,6 +30,7 @@ from db import (
     update_site_check_interval,
     update_site_display_name,
     update_site_domain_monitoring,
+    update_site_domain_expires_at,
     get_chat_language,
     set_chat_language,
 )
@@ -87,6 +89,10 @@ TEXTS = {
         "remove_missing": "⚠️ Нет сайта с таким номером. Проверь /list",
         "removed": "🗑 Удалено: {url}",
         "remove_usage": "Используй: /remove 1 или /remove google.com",
+        "domain_usage": "Используй: /domain 1 2026-05-10 или /domain 1 -",
+        "domain_updated": "📅 Ручная дата домена обновлена: {value}",
+        "domain_reset": "📅 Ручная дата домена сброшена.",
+        "domain_invalid_date": "⚠️ Не понял дату. Используй формат YYYY-MM-DD, например 2026-05-10.",
         "myid": "Твой chat_id: {chat_id}",
         "feedback_not_configured": "⚠️ Обратная связь пока не настроена.",
         "feedback_title": "💬 Обратная связь",
@@ -115,6 +121,7 @@ TEXTS = {
             "➕ Добавить сайт\n/add google.com\n\n"
             "📋 Список сайтов\n/list\n\n"
             "🌐 Карточка сайта\n/site 1\n\n"
+            "📅 Ручной срок домена\n/domain 1 2026-05-10\n\n"
             "💬 Обратная связь\n/feedback\n\n"
             "🗑 Удалить сайт\n/remove 1\n\n"
             "🟢 UP — работает\n"
@@ -214,6 +221,10 @@ TEXTS = {
         "remove_missing": "⚠️ There is no site with this number. Check /list",
         "removed": "🗑 Removed: {url}",
         "remove_usage": "Use: /remove 1 or /remove google.com",
+        "domain_usage": "Use: /domain 1 2026-05-10 or /domain 1 -",
+        "domain_updated": "📅 Manual domain date updated: {value}",
+        "domain_reset": "📅 Manual domain date reset.",
+        "domain_invalid_date": "⚠️ Could not understand the date. Use YYYY-MM-DD, for example 2026-05-10.",
         "myid": "Your chat_id: {chat_id}",
         "feedback_not_configured": "⚠️ Feedback is not configured yet.",
         "feedback_title": "💬 Feedback",
@@ -242,6 +253,7 @@ TEXTS = {
             "➕ Add a site\n/add google.com\n\n"
             "📋 Site list\n/list\n\n"
             "🌐 Site card\n/site 1\n\n"
+            "📅 Manual domain expiry\n/domain 1 2026-05-10\n\n"
             "💬 Feedback\n/feedback\n\n"
             "🗑 Remove a site\n/remove 1\n\n"
             "🟢 UP — working\n"
@@ -467,6 +479,19 @@ def site_display_name(url, display_name=None):
     return display_name or short_url(url)
 
 
+def days_until(expires_at):
+    if not expires_at:
+        return None
+
+    if isinstance(expires_at, datetime):
+        expires_at = expires_at.date()
+
+    if isinstance(expires_at, date):
+        return (expires_at - date.today()).days
+
+    return None
+
+
 def site_number_menu(number, lang="ru"):
     builder = InlineKeyboardBuilder()
 
@@ -513,7 +538,8 @@ def build_status_text(sites, lang="ru"):
     )
 
 
-def build_check_text(results, lang="ru"):
+def build_check_text(results, lang="ru", manual_domain_days=None):
+    manual_domain_days = manual_domain_days or {}
     check_text = text(lang, "check_title")
 
     for result in results:
@@ -524,7 +550,8 @@ def build_check_text(results, lang="ru"):
         if ssl_info:
             check_text += f"{ssl_info}\n"
 
-        domain_info = domain_text(result.domain_days, lang=lang)
+        domain_days = manual_domain_days.get(result.url, result.domain_days)
+        domain_info = domain_text(domain_days, lang=lang)
 
         if domain_info:
             check_text += f"{domain_info}\n"
@@ -617,7 +644,11 @@ async def build_site_card(site, number=None, lang="ru"):
     result = (await check_many_sites([url]))[0]
 
     ssl_info = ssl_text(result.ssl_days, lang=lang) or text(lang, "no_data")
-    domain_info = domain_text(result.domain_days, lang=lang) or text(lang, "no_data")
+    domain_days = days_until(site["domain_expires_at"])
+    if domain_days is None:
+        domain_days = result.domain_days
+
+    domain_info = domain_text(domain_days, lang=lang) or text(lang, "no_data")
     status_icon = render_status_icon(status)
 
     title = f"🌐 {short_url(url)}"
@@ -825,6 +856,42 @@ async def remove(msg: types.Message):
         await msg.answer(text(lang, "remove_usage"))
 
 
+@dp.message(Command("domain"))
+async def set_domain_expiry(msg: types.Message):
+    lang = ensure_lang(msg)
+
+    try:
+        parts = msg.text.split(maxsplit=2)
+        if len(parts) != 3:
+            await msg.answer(text(lang, "domain_usage"))
+            return
+
+        _, number_text, value = parts
+        number = int(number_text)
+        site = get_user_site_by_number(msg.chat.id, number)
+
+        if not site:
+            await msg.answer(text(lang, "site_not_found_refresh"))
+            return
+
+        value = value.strip()
+
+        if value in ("-", "reset", "none"):
+            update_site_domain_expires_at(site["id"], None)
+            await msg.answer(text(lang, "domain_reset"))
+            return
+
+        expires_at = datetime.strptime(value, "%Y-%m-%d").date()
+        update_site_domain_expires_at(site["id"], expires_at)
+        await msg.answer(text(lang, "domain_updated", value=expires_at.isoformat()))
+
+    except ValueError:
+        await msg.answer(text(lang, "domain_invalid_date"))
+
+    except Exception:
+        await msg.answer(text(lang, "domain_usage"))
+
+
 @dp.message(Command("list"))
 async def list_sites(msg: types.Message):
     lang = ensure_lang(msg)
@@ -836,7 +903,7 @@ async def list_sites(msg: types.Message):
 
     list_text = text(lang, "your_sites")
 
-    for i, (url, status, display_name) in enumerate(sites, start=1):
+    for i, (url, status, display_name, _) in enumerate(sites, start=1):
         icon = render_status_icon(status)
         list_text += f"{i}. {icon} {site_display_name(url, display_name)} — {status}\n"
 
@@ -857,7 +924,7 @@ async def site_card(msg: types.Message):
     except Exception:
         sites_text = text(lang, "choose_site")
 
-        for i, (url, status, display_name) in enumerate(sites, start=1):
+        for i, (url, status, display_name, _) in enumerate(sites, start=1):
             icon = render_status_icon(status)
             sites_text += f"{i}. {icon} {site_display_name(url, display_name)} — {status}\n"
 
@@ -909,10 +976,15 @@ async def manual_check(msg: types.Message):
 
     await msg.answer(text(lang, "checking_sites"))
 
-    urls = [url for url, _, _ in sites]
+    urls = [site[0] for site in sites]
+    manual_domain_days = {
+        url: days_until(domain_expires_at)
+        for url, _, _, domain_expires_at in sites
+        if domain_expires_at
+    }
     results = await check_many_sites(urls)
 
-    await msg.answer(build_check_text(results, lang))
+    await msg.answer(build_check_text(results, lang, manual_domain_days))
 
 
 @dp.message(Command("incidents"))
@@ -1168,7 +1240,7 @@ async def menu_list(callback: types.CallbackQuery):
 
     list_text = text(lang, "your_sites")
 
-    for i, (url, status, display_name) in enumerate(sites, start=1):
+    for i, (url, status, display_name, _) in enumerate(sites, start=1):
         icon = render_status_icon(status)
         list_text += f"{i}. {icon} {site_display_name(url, display_name)} — {status}\n"
 
@@ -1425,11 +1497,16 @@ async def callback_check(callback: types.CallbackQuery):
 
     await callback.message.edit_text(text(lang, "checking_sites"))
 
-    urls = [url for url, _, _ in sites]
+    urls = [site[0] for site in sites]
+    manual_domain_days = {
+        url: days_until(domain_expires_at)
+        for url, _, _, domain_expires_at in sites
+        if domain_expires_at
+    }
     results = await check_many_sites(urls)
 
     await callback.message.edit_text(
-        build_check_text(results, lang),
+        build_check_text(results, lang, manual_domain_days),
         reply_markup=refresh_menu(lang),
     )
 

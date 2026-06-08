@@ -89,6 +89,7 @@ Change language:
 /remove     Remove a site by number or URL
 /list       Show monitored sites
 /site       Show a site card
+/domain     Set manual domain expiry date, for example /domain 1 2026-05-10
 /status     Show monitoring summary
 /check      Run a manual check
 /incidents  Show recent incidents

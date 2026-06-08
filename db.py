@@ -41,6 +41,7 @@ def init_db():
                     check_interval_seconds INTEGER,
                     last_checked_at TIMESTAMP,
                     domain_alert_sent BOOLEAN DEFAULT FALSE,
+                    domain_expires_at DATE,
                     UNIQUE(url, chat_id)
                 )
             """)
@@ -106,6 +107,11 @@ def init_db():
             c.execute("""
                 ALTER TABLE sites
                 ADD COLUMN IF NOT EXISTS domain_alert_sent BOOLEAN DEFAULT FALSE
+            """)
+
+            c.execute("""
+                ALTER TABLE sites
+                ADD COLUMN IF NOT EXISTS domain_expires_at DATE
             """)
 
             c.execute("""
@@ -227,7 +233,7 @@ def get_user_sites(chat_id):
     with get_conn() as conn:
         with conn.cursor() as c:
             c.execute("""
-                SELECT url, status, display_name
+                SELECT url, status, display_name, domain_expires_at
                 FROM sites
                 WHERE chat_id=%s
                 ORDER BY id
@@ -236,6 +242,7 @@ def get_user_sites(chat_id):
 
     return [
         (row["url"], row["status"], row["display_name"])
+        + (row["domain_expires_at"],)
         for row in rows
     ]
 
@@ -260,7 +267,8 @@ def get_user_site_by_number(chat_id, number):
                     domain_monitoring_enabled,
                     check_interval_seconds,
                     last_checked_at,
-                    domain_alert_sent
+                    domain_alert_sent,
+                    domain_expires_at
                 FROM sites
                 WHERE chat_id=%s
                 ORDER BY id
@@ -289,7 +297,8 @@ def get_user_site_detail(chat_id, url):
                     domain_monitoring_enabled,
                     check_interval_seconds,
                     last_checked_at,
-                    domain_alert_sent
+                    domain_alert_sent,
+                    domain_expires_at
                 FROM sites
                 WHERE chat_id=%s AND url=%s
             """, (chat_id, url))
@@ -315,7 +324,8 @@ def get_sites():
                     domain_monitoring_enabled,
                     check_interval_seconds,
                     last_checked_at,
-                    domain_alert_sent
+                    domain_alert_sent,
+                    domain_expires_at
                 FROM sites
                 ORDER BY id
             """)
@@ -452,6 +462,20 @@ def update_domain_alert_status(site_id, alert_sent):
             c.execute(
                 "UPDATE sites SET domain_alert_sent=%s WHERE id=%s",
                 (alert_sent, site_id)
+            )
+        conn.commit()
+
+
+def update_site_domain_expires_at(site_id, expires_at):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                """
+                UPDATE sites
+                SET domain_expires_at=%s, domain_alert_sent=FALSE
+                WHERE id=%s
+                """,
+                (expires_at, site_id)
             )
         conn.commit()
 
