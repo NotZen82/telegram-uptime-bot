@@ -438,7 +438,6 @@ def main_menu(lang="ru"):
     builder.button(text=text(lang, "menu_faq"), callback_data="menu_faq")
     builder.button(text=text(lang, "menu_feedback"), callback_data="menu_feedback")
     builder.button(text=text(lang, "menu_language"), callback_data="menu_language")
-    builder.button(text=text(lang, "menu_retro"), callback_data="menu_retro")
     builder.button(text=text(lang, "menu_cleanup"), callback_data="menu_cleanup")
 
 
@@ -1088,7 +1087,8 @@ async def receive_site_setting(msg: types.Message):
 async def retro(msg: types.Message):
     lang = ensure_lang(msg)
     await msg.answer(
-        text(lang, "retro_command")
+        text(lang, "retro_intro"),
+        reply_markup=retro_menu(lang)
     )
 
 
