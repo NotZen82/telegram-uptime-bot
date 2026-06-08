@@ -1170,7 +1170,8 @@ async def menu_add_help(callback: types.CallbackQuery):
     await safe_answer(callback)
     lang = get_lang(callback.message.chat.id)
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback.message,
         text(lang, "add_help"),
         reply_markup=main_menu(lang),
     )
@@ -1231,7 +1232,8 @@ async def menu_list(callback: types.CallbackQuery):
     sites = get_user_sites(callback.message.chat.id)
 
     if not sites:
-        await callback.message.edit_text(
+        await safe_edit(
+            callback.message,
             f"{text(lang, 'no_sites_monitoring')}\n\n"
             f"{text(lang, 'add_usage')}",
             reply_markup=main_menu(lang),
@@ -1244,7 +1246,8 @@ async def menu_list(callback: types.CallbackQuery):
         icon = render_status_icon(status)
         list_text += f"{i}. {icon} {site_display_name(url, display_name)} — {status}\n"
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback.message,
         list_text,
         reply_markup=sites_menu(sites, lang),
     )
@@ -1258,13 +1261,15 @@ async def menu_status(callback: types.CallbackQuery):
     sites = get_user_sites(callback.message.chat.id)
 
     if not sites:
-        await callback.message.edit_text(
+        await safe_edit(
+            callback.message,
             text(lang, "no_sites_monitoring"),
             reply_markup=main_menu(lang),
         )
         return
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback.message,
         build_status_text(sites, lang),
         reply_markup=main_menu(lang),
     )
@@ -1321,13 +1326,15 @@ async def delete_site_callback(callback: types.CallbackQuery):
     )
 
     if not url:
-        await callback.message.edit_text(
+        await safe_edit(
+            callback.message,
             text(lang, "site_not_found_refresh"),
             reply_markup=main_menu(lang),
         )
         return
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback.message,
         text(lang, "removed", url=short_url(url)),
         reply_markup=main_menu(lang),
     )
@@ -1489,13 +1496,14 @@ async def callback_check(callback: types.CallbackQuery):
     sites = get_user_sites(callback.message.chat.id)
 
     if not sites:
-        await callback.message.edit_text(
+        await safe_edit(
+            callback.message,
             text(lang, "no_sites_check"),
             reply_markup=main_menu(lang),
         )
         return
 
-    await callback.message.edit_text(text(lang, "checking_sites"))
+    await safe_edit(callback.message, text(lang, "checking_sites"))
 
     urls = [site[0] for site in sites]
     manual_domain_days = {
@@ -1505,7 +1513,8 @@ async def callback_check(callback: types.CallbackQuery):
     }
     results = await check_many_sites(urls)
 
-    await callback.message.edit_text(
+    await safe_edit(
+        callback.message,
         build_check_text(results, lang, manual_domain_days),
         reply_markup=refresh_menu(lang),
     )
