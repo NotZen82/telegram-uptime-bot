@@ -37,8 +37,10 @@ def init_db():
                     display_name TEXT,
                     failure_threshold INTEGER,
                     ssl_monitoring_enabled BOOLEAN DEFAULT TRUE,
+                    domain_monitoring_enabled BOOLEAN DEFAULT TRUE,
                     check_interval_seconds INTEGER,
                     last_checked_at TIMESTAMP,
+                    domain_alert_sent BOOLEAN DEFAULT FALSE,
                     UNIQUE(url, chat_id)
                 )
             """)
@@ -82,12 +84,28 @@ def init_db():
 
             c.execute("""
                 ALTER TABLE sites
+                ADD COLUMN IF NOT EXISTS domain_monitoring_enabled BOOLEAN DEFAULT TRUE
+            """)
+
+            c.execute("""
+                UPDATE sites
+                SET domain_monitoring_enabled = TRUE
+                WHERE domain_monitoring_enabled IS NULL
+            """)
+
+            c.execute("""
+                ALTER TABLE sites
                 ADD COLUMN IF NOT EXISTS check_interval_seconds INTEGER
             """)
 
             c.execute("""
                 ALTER TABLE sites
                 ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMP
+            """)
+
+            c.execute("""
+                ALTER TABLE sites
+                ADD COLUMN IF NOT EXISTS domain_alert_sent BOOLEAN DEFAULT FALSE
             """)
 
             c.execute("""
@@ -239,8 +257,10 @@ def get_user_site_by_number(chat_id, number):
                     display_name,
                     failure_threshold,
                     ssl_monitoring_enabled,
+                    domain_monitoring_enabled,
                     check_interval_seconds,
-                    last_checked_at
+                    last_checked_at,
+                    domain_alert_sent
                 FROM sites
                 WHERE chat_id=%s
                 ORDER BY id
@@ -266,8 +286,10 @@ def get_user_site_detail(chat_id, url):
                     display_name,
                     failure_threshold,
                     ssl_monitoring_enabled,
+                    domain_monitoring_enabled,
                     check_interval_seconds,
-                    last_checked_at
+                    last_checked_at,
+                    domain_alert_sent
                 FROM sites
                 WHERE chat_id=%s AND url=%s
             """, (chat_id, url))
@@ -290,8 +312,10 @@ def get_sites():
                     display_name,
                     failure_threshold,
                     ssl_monitoring_enabled,
+                    domain_monitoring_enabled,
                     check_interval_seconds,
-                    last_checked_at
+                    last_checked_at,
+                    domain_alert_sent
                 FROM sites
                 ORDER BY id
             """)
@@ -404,6 +428,30 @@ def update_site_ssl_monitoring(site_id, enabled):
                 WHERE id=%s
                 """,
                 (enabled, site_id)
+            )
+        conn.commit()
+
+
+def update_site_domain_monitoring(site_id, enabled):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                """
+                UPDATE sites
+                SET domain_monitoring_enabled=%s, domain_alert_sent=FALSE
+                WHERE id=%s
+                """,
+                (enabled, site_id)
+            )
+        conn.commit()
+
+
+def update_domain_alert_status(site_id, alert_sent):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute(
+                "UPDATE sites SET domain_alert_sent=%s WHERE id=%s",
+                (alert_sent, site_id)
             )
         conn.commit()
 

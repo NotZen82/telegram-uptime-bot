@@ -28,12 +28,13 @@ from db import (
     update_site_ssl_monitoring,
     update_site_check_interval,
     update_site_display_name,
+    update_site_domain_monitoring,
     get_chat_language,
     set_chat_language,
 )
 
 from checker import check_sites
-from monitor import check_many_sites, ssl_text, short_url
+from monitor import check_many_sites, ssl_text, domain_text, short_url
 
 
 bot = Bot(token=BOT_TOKEN)
@@ -121,17 +122,22 @@ TEXTS = {
             "🔴 DOWN — недоступен\n\n"
             "🔐 SSL monitoring включен.\n"
             "Бот предупредит перед истечением сертификата.\n\n"
+            "📅 Domain monitoring включен.\n"
+            "Бот предупредит перед истечением регистрации домена.\n\n"
             "🌐 Сменить язык\n/lang"
         ),
         "site_settings_title": "⚙️ Настройки сайта {number}",
         "threshold": "🚦 Порог ошибок",
         "ssl_alerts": "🔐 SSL-алерты",
+        "domain_alerts": "📅 Domain-алерты",
         "check_interval": "⏱ Интервал проверки",
         "site_name": "✏️ Имя",
         "enabled": "включен",
         "disabled": "выключен",
         "disable_ssl": "🔕 Выключить SSL",
         "enable_ssl": "🔔 Включить SSL",
+        "disable_domain": "🔕 Выключить Domain",
+        "enable_domain": "🔔 Включить Domain",
         "interval": "⏱ Интервал",
         "site_name_button": "✏️ Имя сайта",
         "db_status": "Статус в базе",
@@ -243,17 +249,22 @@ TEXTS = {
             "🔴 DOWN — unavailable\n\n"
             "🔐 SSL monitoring is enabled.\n"
             "The bot warns before certificate expiration.\n\n"
+            "📅 Domain monitoring is enabled.\n"
+            "The bot warns before domain registration expiration.\n\n"
             "🌐 Change language\n/lang"
         ),
         "site_settings_title": "⚙️ Site settings {number}",
         "threshold": "🚦 Failure threshold",
         "ssl_alerts": "🔐 SSL alerts",
+        "domain_alerts": "📅 Domain alerts",
         "check_interval": "⏱ Check interval",
         "site_name": "✏️ Name",
         "enabled": "enabled",
         "disabled": "disabled",
         "disable_ssl": "🔕 Disable SSL",
         "enable_ssl": "🔔 Enable SSL",
+        "disable_domain": "🔕 Disable Domain",
+        "enable_domain": "🔔 Enable Domain",
         "interval": "⏱ Interval",
         "site_name_button": "✏️ Site name",
         "db_status": "Database status",
@@ -513,6 +524,11 @@ def build_check_text(results, lang="ru"):
         if ssl_info:
             check_text += f"{ssl_info}\n"
 
+        domain_info = domain_text(result.domain_days, lang=lang)
+
+        if domain_info:
+            check_text += f"{domain_info}\n"
+
         check_text += "\n"
 
     return check_text
@@ -536,9 +552,12 @@ def site_settings_menu(site, number, lang="ru"):
 
     ssl_enabled = site["ssl_monitoring_enabled"]
     ssl_text_button = text(lang, "disable_ssl") if ssl_enabled else text(lang, "enable_ssl")
+    domain_enabled = site["domain_monitoring_enabled"]
+    domain_text_button = text(lang, "disable_domain") if domain_enabled else text(lang, "enable_domain")
 
     builder.button(text=text(lang, "threshold"), callback_data=f"setting_threshold:{number}")
     builder.button(text=ssl_text_button, callback_data=f"setting_ssl:{number}")
+    builder.button(text=domain_text_button, callback_data=f"setting_domain:{number}")
     builder.button(text=text(lang, "interval"), callback_data=f"setting_interval:{number}")
     builder.button(text=text(lang, "site_name_button"), callback_data=f"setting_name:{number}")
     builder.button(text=text(lang, "site_card"), callback_data=f"site_detail:{number}")
@@ -561,6 +580,7 @@ def format_interval(seconds):
 def build_site_settings_text(site, number, lang="ru"):
     threshold = site["failure_threshold"] or FAILURE_THRESHOLD
     ssl_status = text(lang, "enabled") if site["ssl_monitoring_enabled"] else text(lang, "disabled")
+    domain_status = text(lang, "enabled") if site["domain_monitoring_enabled"] else text(lang, "disabled")
     name = site_display_name(site["url"], site["display_name"])
 
     return (
@@ -569,6 +589,7 @@ def build_site_settings_text(site, number, lang="ru"):
         f"URL: {short_url(site['url'])}\n\n"
         f"{text(lang, 'threshold')}: {threshold}\n"
         f"{text(lang, 'ssl_alerts')}: {ssl_status}\n"
+        f"{text(lang, 'domain_alerts')}: {domain_status}\n"
         f"{text(lang, 'check_interval')}: {format_interval(site['check_interval_seconds'])}\n"
         f"{text(lang, 'site_name')}: {name}"
     )
@@ -596,6 +617,7 @@ async def build_site_card(site, number=None, lang="ru"):
     result = (await check_many_sites([url]))[0]
 
     ssl_info = ssl_text(result.ssl_days, lang=lang) or text(lang, "no_data")
+    domain_info = domain_text(result.domain_days, lang=lang) or text(lang, "no_data")
     status_icon = render_status_icon(status)
 
     title = f"🌐 {short_url(url)}"
@@ -607,6 +629,7 @@ async def build_site_card(site, number=None, lang="ru"):
         f"{text(lang, 'db_status')}: {status_icon} {status}\n"
         f"{text(lang, 'check_now')}: {result.icon} {result.result}\n"
         f"SSL: {ssl_info}\n"
+        f"Domain: {domain_info}\n"
         f"{text(lang, 'errors_in_row')}: {failure_count}/{site['failure_threshold'] or FAILURE_THRESHOLD}\n"
         f"{text(lang, 'last_incident')}: {format_incident_text(incident, lang)}"
     )
@@ -1300,6 +1323,29 @@ async def setting_ssl_callback(callback: types.CallbackQuery):
 
     enabled = not site["ssl_monitoring_enabled"]
     update_site_ssl_monitoring(site["id"], enabled)
+    site = get_user_site_by_number(callback.message.chat.id, number)
+
+    await safe_edit(
+        callback.message,
+        build_site_settings_text(site, number, lang),
+        reply_markup=site_settings_menu(site, number, lang),
+    )
+
+
+@dp.callback_query(F.data.startswith("setting_domain:"))
+async def setting_domain_callback(callback: types.CallbackQuery):
+    await safe_answer(callback)
+    lang = get_lang(callback.message.chat.id)
+
+    number = int(callback.data.split(":")[1])
+    site = get_user_site_by_number(callback.message.chat.id, number)
+
+    if not site:
+        await safe_edit(callback.message, text(lang, "site_not_found_refresh"), reply_markup=main_menu(lang))
+        return
+
+    enabled = not site["domain_monitoring_enabled"]
+    update_site_domain_monitoring(site["id"], enabled)
     site = get_user_site_by_number(callback.message.chat.id, number)
 
     await safe_edit(

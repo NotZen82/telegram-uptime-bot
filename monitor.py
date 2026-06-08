@@ -15,6 +15,7 @@ class CheckResult:
     icon: str
     result: str
     ssl_days: int | None
+    domain_days: int | None
 
 
 def normalize_url(url: str) -> str:
@@ -27,6 +28,23 @@ def normalize_url(url: str) -> str:
 def extract_domain(url: str) -> str:
     url = url.replace("https://", "").replace("http://", "")
     return url.split("/")[0]
+
+
+def domain_candidates(url: str) -> list[str]:
+    domain = extract_domain(url).split(":")[0].lower()
+    candidates = []
+
+    if domain:
+        candidates.append(domain)
+
+    if domain.startswith("www."):
+        candidates.append(domain[4:])
+
+    parts = domain.split(".")
+    if len(parts) > 2:
+        candidates.append(".".join(parts[-2:]))
+
+    return list(dict.fromkeys(candidates))
 
 
 def status_to_icon(status: str) -> str:
@@ -62,8 +80,44 @@ def check_ssl_expiry(url: str) -> int | None:
         return None
 
 
+def parse_rdap_datetime(value: str) -> datetime:
+    value = value.replace("Z", "+00:00")
+    return datetime.fromisoformat(value).astimezone(timezone.utc)
+
+
+async def check_domain_expiry(session: aiohttp.ClientSession, url: str) -> int | None:
+    for domain in domain_candidates(url):
+        try:
+            async with session.get(
+                f"https://rdap.org/domain/{domain}",
+                timeout=aiohttp.ClientTimeout(total=10),
+                allow_redirects=True,
+                headers={"User-Agent": "TelegramUptimeBot/1.0"}
+            ) as response:
+                if response.status >= 400:
+                    continue
+
+                data = await response.json(content_type=None)
+
+            for event in data.get("events", []):
+                action = (event.get("eventAction") or "").lower()
+                if action in {"expiration", "expiry"}:
+                    event_date = event.get("eventDate")
+                    if not event_date:
+                        continue
+
+                    expires_date = parse_rdap_datetime(event_date)
+                    return (expires_date - datetime.now(timezone.utc)).days
+
+        except Exception:
+            continue
+
+    return None
+
+
 async def check_site(session: aiohttp.ClientSession, url: str) -> CheckResult:
     full_url = normalize_url(url)
+    domain_days = await check_domain_expiry(session, url)
 
     try:
         start = time.time()
@@ -98,29 +152,28 @@ async def check_site(session: aiohttp.ClientSession, url: str) -> CheckResult:
                 result = f"HTTP {code} — {elapsed}ms"
 
             ssl_days = check_ssl_expiry(url) if status == "UP" else None
-
-            return CheckResult(url, status, icon, result, ssl_days)
+            return CheckResult(url, status, icon, result, ssl_days, domain_days)
 
     except asyncio.TimeoutError:
-        return CheckResult(url, "TIMEOUT", "🔴", "timeout", None)
+        return CheckResult(url, "TIMEOUT", "🔴", "timeout", None, domain_days)
 
     except aiohttp.ClientConnectorCertificateError:
-        return CheckResult(url, "SSL ERROR", "🔴", "ssl error", None)
+        return CheckResult(url, "SSL ERROR", "🔴", "ssl error", None, domain_days)
 
     except aiohttp.ClientConnectorError:
-        return CheckResult(url, "CONNECTION ERROR", "🔴", "dns/connection error", None)
+        return CheckResult(url, "CONNECTION ERROR", "🔴", "dns/connection error", None, domain_days)
 
     except aiohttp.InvalidURL:
-        return CheckResult(url, "INVALID URL", "🔴", "invalid url", None)
+        return CheckResult(url, "INVALID URL", "🔴", "invalid url", None, domain_days)
 
     except aiohttp.TooManyRedirects:
-        return CheckResult(url, "TOO MANY REDIRECTS", "🔴", "too many redirects", None)
+        return CheckResult(url, "TOO MANY REDIRECTS", "🔴", "too many redirects", None, domain_days)
 
     except aiohttp.ClientError:
-        return CheckResult(url, "CLIENT ERROR", "🔴", "client error", None)
+        return CheckResult(url, "CLIENT ERROR", "🔴", "client error", None, domain_days)
 
     except Exception:
-        return CheckResult(url, "UNKNOWN ERROR", "🔴", "unknown error", None)
+        return CheckResult(url, "UNKNOWN ERROR", "🔴", "unknown error", None, domain_days)
 
 
 async def check_many_sites(urls: list[str]) -> list[CheckResult]:
@@ -155,6 +208,30 @@ def ssl_text(ssl_days: int | None, lang: str = "ru") -> str:
     if lang == "en":
         return f"🔐 SSL: {ssl_days} days"
     return f"🔐 SSL: {ssl_days} дн."
+
+
+def domain_text(domain_days: int | None, lang: str = "ru") -> str:
+    if domain_days is None:
+        return ""
+
+    if domain_days < 0:
+        if lang == "en":
+            return f"📅 Domain expired {abs(domain_days)} days ago"
+        return f"📅 Домен истек {abs(domain_days)} дн. назад"
+
+    if domain_days <= 14:
+        if lang == "en":
+            return f"📅 Domain expires in {domain_days} days ⚠️"
+        return f"📅 Домен истекает через {domain_days} дн. ⚠️"
+
+    if domain_days <= 30:
+        if lang == "en":
+            return f"📅 Domain expires in {domain_days} days"
+        return f"📅 Домен истекает через {domain_days} дн."
+
+    if lang == "en":
+        return f"📅 Domain: {domain_days} days"
+    return f"📅 Домен: {domain_days} дн."
 
 
 def short_url(url: str) -> str:

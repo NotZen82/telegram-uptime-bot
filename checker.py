@@ -14,6 +14,7 @@ from db import (
     reset_failure_count,
     update_site_checked_at,
     update_ssl_alert_status,
+    update_domain_alert_status,
     open_incident,
     close_incident,
     format_duration,
@@ -99,6 +100,61 @@ def check_ssl_expiry(domain):
         return None
 
 
+def domain_candidates(url):
+    domain = url.replace("https://", "").replace("http://", "")
+    domain = domain.split("/")[0].split(":")[0].lower()
+    candidates = []
+
+    if domain:
+        candidates.append(domain)
+
+    if domain.startswith("www."):
+        candidates.append(domain[4:])
+
+    parts = domain.split(".")
+    if len(parts) > 2:
+        candidates.append(".".join(parts[-2:]))
+
+    return list(dict.fromkeys(candidates))
+
+
+def parse_rdap_datetime(value):
+    value = value.replace("Z", "+00:00")
+    return datetime.fromisoformat(value).astimezone(timezone.utc)
+
+
+def check_domain_expiry(url):
+    for domain in domain_candidates(url):
+        try:
+            response = requests.get(
+                f"https://rdap.org/domain/{domain}",
+                timeout=10,
+                allow_redirects=True,
+                headers={"User-Agent": "TelegramUptimeBot/1.0"}
+            )
+
+            if response.status_code >= 400:
+                continue
+
+            data = response.json()
+
+            for event in data.get("events", []):
+                action = (event.get("eventAction") or "").lower()
+                if action in ("expiration", "expiry"):
+                    event_date = event.get("eventDate")
+
+                    if not event_date:
+                        continue
+
+                    expires_date = parse_rdap_datetime(event_date)
+                    return (expires_date - datetime.now(timezone.utc)).days
+
+        except Exception:
+            continue
+
+    return None
+
+
 async def send_auto_delete(bot, chat_id, text):
     message = await bot.send_message(chat_id, text)
     asyncio.create_task(auto_delete(message, delay=60))
@@ -128,6 +184,13 @@ def alert_text(lang, kind, url, **kwargs):
                 f"🔐 Days left: {kwargs['ssl_days']}"
             )
 
+        if kind == "domain":
+            return (
+                f"⚠️ Domain expires soon:\n\n"
+                f"🌐 {url}\n"
+                f"📅 Days left: {kwargs['domain_days']}"
+            )
+
     if kind == "up":
         return (
             f"🟢 Сайт снова работает:\n\n"
@@ -141,6 +204,13 @@ def alert_text(lang, kind, url, **kwargs):
             f"🌐 {url}\n"
             f"⚠️ {kwargs['status']}\n"
             f"Проверок подряд с ошибкой: {kwargs['failure_count']}"
+        )
+
+    if kind == "domain":
+        return (
+            f"⚠️ Домен скоро истекает:\n\n"
+            f"🌐 {url}\n"
+            f"📅 Осталось дней: {kwargs['domain_days']}"
         )
 
     return (
@@ -160,11 +230,13 @@ async def check_sites(bot: Bot):
         old_status = site["status"]
         lang = get_chat_language(chat_id) or "ru"
         ssl_alert_sent = site["ssl_alert_sent"]
+        domain_alert_sent = site["domain_alert_sent"]
         failure_count = site["failure_count"]
         failure_threshold = site["failure_threshold"] or FAILURE_THRESHOLD
         check_interval = site["check_interval_seconds"]
         last_checked_at = site["last_checked_at"]
         ssl_monitoring_enabled = site["ssl_monitoring_enabled"]
+        domain_monitoring_enabled = site["domain_monitoring_enabled"]
 
         if check_interval and last_checked_at:
             elapsed = (datetime.now() - last_checked_at).total_seconds()
@@ -217,24 +289,43 @@ async def check_sites(bot: Bot):
                     )
                 )
 
-        if not ssl_monitoring_enabled:
+        if ssl_monitoring_enabled:
+            ssl_days = check_ssl_expiry(url)
+
+            if ssl_days is not None:
+                if ssl_days <= 7 and not ssl_alert_sent:
+                    await send_auto_delete(
+                        bot,
+                        chat_id,
+                        alert_text(lang, "ssl", url, ssl_days=ssl_days)
+                    )
+
+                    update_ssl_alert_status(site_id, True)
+
+                if ssl_days > 7 and ssl_alert_sent:
+                    update_ssl_alert_status(site_id, False)
+        else:
             if ssl_alert_sent:
                 update_ssl_alert_status(site_id, False)
+
+        if not domain_monitoring_enabled:
+            if domain_alert_sent:
+                update_domain_alert_status(site_id, False)
             continue
 
-        ssl_days = check_ssl_expiry(url)
+        domain_days = check_domain_expiry(url)
 
-        if ssl_days is None:
+        if domain_days is None:
             continue
 
-        if ssl_days <= 7 and not ssl_alert_sent:
+        if domain_days <= 14 and not domain_alert_sent:
             await send_auto_delete(
                 bot,
                 chat_id,
-                alert_text(lang, "ssl", url, ssl_days=ssl_days)
+                alert_text(lang, "domain", url, domain_days=domain_days)
             )
 
-            update_ssl_alert_status(site_id, True)
+            update_domain_alert_status(site_id, True)
 
-        if ssl_days > 7 and ssl_alert_sent:
-            update_ssl_alert_status(site_id, False)
+        if domain_days > 14 and domain_alert_sent:
+            update_domain_alert_status(site_id, False)

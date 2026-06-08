@@ -23,11 +23,13 @@ It is especially useful if you maintain websites for clients and want alerts in 
 - HTTP/HTTPS uptime checks
 - Telegram DOWN and RECOVERY alerts
 - SSL expiration warnings
+- Domain expiration warnings
 - Incident history
 - Per-site settings:
   - failure threshold
   - custom check interval
   - SSL monitoring toggle
+  - domain monitoring toggle
   - display name
 - Manual check command
 - Feedback forwarding to a private group
@@ -189,7 +191,6 @@ Bot поддерживает русский и английский интерф
 ## Roadmap
 
 - Client/project grouping
-- Domain expiration checks
 - Maintenance windows
 - Acknowledge and mute buttons on alerts
 - Daily and weekly Telegram reports
